@@ -1,0 +1,264 @@
+:root {
+  /* Color: a dark logbook, not a terminal — warm off-white ink on deep
+     slate, with a phosphor-amber accent for anything "live" (the running
+     timer) rather than the default acid-green/vermilion pairing. */
+  --bg: #14161b;
+  --surface: #1b1e25;
+  --surface-raised: #21252e;
+  --border: #2a2e37;
+  --border-strong: #383d49;
+
+  --ink: #e8e6df;
+  --ink-dim: #9a9ea8;
+  --ink-faint: #5f636d;
+
+  --accent: #d9a441; /* phosphor amber — the "live" / running-timer color */
+  --accent-dim: #8a6a2e;
+  --teal: #4fb0a5; /* secondary accent — completed / positive */
+  --danger: #d9706c;
+
+  --font-ui: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+
+  --radius: 6px;
+  --sidebar-width: 220px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  min-height: 100vh;
+}
+
+/* ---- Sidebar ---- */
+
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sidebar-brand {
+  padding: 0 8px;
+}
+
+.sidebar-brand .life {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.sidebar-brand .name {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-nav a {
+  display: block;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--ink-dim);
+  font-size: 13.5px;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.sidebar-nav a:hover {
+  background: var(--surface-raised);
+  color: var(--ink);
+}
+
+.sidebar-nav a.active {
+  background: var(--surface-raised);
+  color: var(--ink);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* ---- Main content ---- */
+
+.main {
+  padding: 28px 36px;
+  max-width: 980px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.page-subtitle {
+  color: var(--ink-dim);
+  font-size: 13px;
+  margin: 0 0 24px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.card + .card {
+  margin-top: 16px;
+}
+
+/* ---- Timer ---- */
+
+.timer-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.timer-readout {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 32px;
+  font-weight: 500;
+}
+
+.timer-readout.running {
+  color: var(--accent);
+}
+
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-right: 10px;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.timer-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+select,
+input[type="text"],
+input[type="datetime-local"] {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  color: var(--ink);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+}
+
+button {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-raised);
+  color: var(--ink);
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: border-color 0.1s ease;
+}
+
+button:hover {
+  border-color: var(--accent-dim);
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a1305;
+}
+
+button.danger {
+  color: var(--danger);
+}
+
+/* ---- Tables / entry list ---- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th {
+  text-align: left;
+  color: var(--ink-faint);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.dim {
+  color: var(--ink-dim);
+}
+
+.empty-state {
+  color: var(--ink-dim);
+  font-size: 13px;
+  padding: 24px 4px;
+}
