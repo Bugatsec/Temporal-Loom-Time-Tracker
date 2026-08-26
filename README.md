@@ -1,3 +1,4 @@
+# 🚧 CURRENTLY IN DEVELOPMENT 🚧
 # Temporal Loom — Stage 1
 
 Local-first, self-hosted time tracker. This is the **Stage 1: Clockify-compatible
