@@ -1,3 +1,4 @@
+import { ColorDot } from "./ColorDot";
 import type { Activity, Project, TimeEntry } from "../api/types";
 
 function formatDuration(seconds: number | null): string {
@@ -25,7 +26,7 @@ interface EntryListProps {
 }
 
 export function EntryList({ entries, projects, activities, onDelete }: EntryListProps) {
-  const projectName = (id: string) => projects.find((p) => p.id === id)?.name ?? id;
+  const project = (id: string) => projects.find((p) => p.id === id);
   const activityName = (id: string) => activities.find((a) => a.id === id)?.name ?? id;
 
   if (entries.length === 0) {
@@ -40,27 +41,53 @@ export function EntryList({ entries, projects, activities, onDelete }: EntryList
           <th>Project</th>
           <th>Activity</th>
           <th>Description</th>
+          <th>Tags</th>
           <th>Duration</th>
           {onDelete && <th></th>}
         </tr>
       </thead>
       <tbody>
-        {entries.map((entry) => (
-          <tr key={entry.id}>
-            <td className="mono dim">{formatWhen(entry.start_at)}</td>
-            <td>{projectName(entry.project_id)}</td>
-            <td>{activityName(entry.activity_id)}</td>
-            <td className="dim">{entry.description ?? "—"}</td>
-            <td className="mono">{formatDuration(entry.duration_seconds)}</td>
-            {onDelete && (
+        {entries.map((entry) => {
+          const p = project(entry.project_id);
+          return (
+            <tr key={entry.id}>
+              <td className="mono dim">{formatWhen(entry.start_at)}</td>
               <td>
-                <button className="danger" onClick={() => onDelete(entry.id)}>
-                  Delete
-                </button>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                  <ColorDot color={p?.color} />
+                  {p?.name ?? entry.project_id}
+                </span>
               </td>
-            )}
-          </tr>
-        ))}
+              <td className="dim">{activityName(entry.activity_id)}</td>
+              <td className="dim">{entry.description ?? "—"}</td>
+              <td>
+                {entry.tags && entry.tags.length > 0 ? (
+                  <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {entry.tags.map((tag) => (
+                      <span
+                        key={tag.id}
+                        className="tag-pill"
+                        style={{ background: (tag.color || "#666") + "26", color: tag.color || "var(--ink)" }}
+                      >
+                        {tag.name}
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  <span className="dim">—</span>
+                )}
+              </td>
+              <td className="mono">{formatDuration(entry.duration_seconds)}</td>
+              {onDelete && (
+                <td>
+                  <button className="danger" onClick={() => onDelete(entry.id)}>
+                    Delete
+                  </button>
+                </td>
+              )}
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );

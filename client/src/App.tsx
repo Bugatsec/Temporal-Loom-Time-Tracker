@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
+import { TimerProvider } from "./context/TimerContext";
 import Activities from "./pages/Activities";
 import Calendar from "./pages/Calendar";
 import Dashboard from "./pages/Dashboard";
@@ -11,18 +12,23 @@ import TimeEntries from "./pages/TimeEntries";
 
 export default function App() {
   return (
-    <div className="app-shell">
-      <Sidebar />
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/entries" element={<TimeEntries />} />
-        <Route path="/projects" element={<Projects />} />
-        <Route path="/activities" element={<Activities />} />
-        <Route path="/calendar" element={<Calendar />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/import-export" element={<ImportExport />} />
-        <Route path="/settings" element={<Settings />} />
-      </Routes>
-    </div>
+    // Mounted above the router so the running timer (and the live
+    // "34:22" document title) survives navigating between internal pages —
+    // it only resets if the browser tab itself is closed.
+    <TimerProvider>
+      <div className="app-shell">
+        <Sidebar />
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/entries" element={<TimeEntries />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/activities" element={<Activities />} />
+          <Route path="/calendar" element={<Calendar />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/import-export" element={<ImportExport />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </div>
+    </TimerProvider>
   );
 }

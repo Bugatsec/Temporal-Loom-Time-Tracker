@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS tags (
   id            TEXT PRIMARY KEY,
   workspace_id  TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
   name          TEXT NOT NULL,
+  color         TEXT,
   UNIQUE(workspace_id, name)
 );
 

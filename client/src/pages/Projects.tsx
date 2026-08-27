@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { ColorDot } from "../components/ColorDot";
+import { COLOR_PALETTE } from "../utils/colors";
 import type { Project } from "../api/types";
 
 export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [name, setName] = useState("");
+  const [editingColorFor, setEditingColorFor] = useState<string | null>(null);
 
   function refresh() {
     api.projects.list().then(setProjects);
@@ -21,6 +24,12 @@ export default function Projects() {
 
   async function handleArchive(id: string) {
     await api.projects.archive(id);
+    refresh();
+  }
+
+  async function handleColorChange(id: string, color: string) {
+    await api.projects.update(id, { color });
+    setEditingColorFor(null);
     refresh();
   }
 
@@ -50,6 +59,7 @@ export default function Projects() {
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Color</th>
                 <th>Created</th>
                 <th></th>
               </tr>
@@ -57,7 +67,29 @@ export default function Projects() {
             <tbody>
               {projects.map((p) => (
                 <tr key={p.id}>
-                  <td>{p.name}</td>
+                  <td>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      <ColorDot color={p.color} />
+                      {p.name}
+                    </span>
+                  </td>
+                  <td>
+                    {editingColorFor === p.id ? (
+                      <div className="color-swatches">
+                        {COLOR_PALETTE.map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            className={"color-swatch" + (p.color === c ? " selected" : "")}
+                            style={{ background: c }}
+                            onClick={() => handleColorChange(p.id, c)}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <button onClick={() => setEditingColorFor(p.id)}>Change color</button>
+                    )}
+                  </td>
                   <td className="mono dim">{new Date(p.created_at).toLocaleDateString()}</td>
                   <td>
                     <button onClick={() => handleArchive(p.id)}>Archive</button>

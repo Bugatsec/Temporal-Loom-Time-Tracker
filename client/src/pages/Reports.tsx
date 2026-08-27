@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { formatTotal } from "../utils/format";
 import type { ProjectBreakdownRow, RangeTotal } from "../api/types";
 
 type RangeKey = "today" | "week" | "month";
@@ -19,12 +20,6 @@ function rangeFor(key: RangeKey): { from: string; to: string } {
     from = new Date(now.getFullYear(), now.getMonth(), 1);
   }
   return { from: from.toISOString(), to: to.toISOString() };
-}
-
-function formatTotal(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return `${h}h ${m}m`;
 }
 
 export default function Reports() {

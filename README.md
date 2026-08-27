@@ -1,4 +1,4 @@
-# Temporal Loom — Stage 1
+# Bug Bounty / Life — Stage 1
 
 Local-first, self-hosted time tracker. This is the **Stage 1: Clockify-compatible
 foundation** build described in the product doc — a working timer, projects,
@@ -47,17 +47,41 @@ To run just one side: `npm run dev:server` or `npm run dev:client`.
 
 ## What's implemented (Stage 1 acceptance criteria)
 
-- Create a project and activity
+- Create a project and activity — inline, from combobox fields on the timer bar
+  or the manual-entry form. No separate "create project" page required; typing
+  a name that doesn't exist yet creates it, typing one that does just selects it
+  (case-insensitive).
 - Start/stop a timer; only one timer can run at a time (409 on conflict)
+- **Live browser tab title** while a timer runs — e.g. `34:22 - Bug Bounty / Life`
+  (no leading `00:` hour), ticking every second regardless of which page inside
+  the app is open, as long as the tab itself is open (`TimerContext`, mounted
+  above the router)
+- **Projects have colors** — auto-assigned from a palette on creation, changeable
+  from the Projects page; a colored dot renders next to the project name
+  everywhere it appears (comboboxes, entry list, Projects page)
+- **Tags with colors** — same type-to-create combobox pattern, rendered as
+  colored pills on entries
 - Manual time entry creation and editing
 - Soft delete (entries are recoverable, never hard-deleted from the UI)
 - Daily/weekly/monthly totals and a per-project breakdown
-- Full-workspace JSON export, versioned (`schema_version`) so a later
-  importer can read it back in
+- Full-workspace JSON export, versioned (`schema_version`)
+- **Clockify CSV import** (Import/Export page) — upload the export file directly;
+  projects/tags are matched by name or created; since Clockify's "Task" field
+  wasn't used in the sample export, imported entries land under a per-project
+  "General" activity, with the real description and tags preserved. Re-uploading
+  the same file is a safe no-op — already-imported entries are detected by
+  project+activity+start+end and skipped.
 
-All of the above was smoke-tested against the running server (project/activity
-CRUD, timer start/stop/conflict, reports, export) — see the commit history or
-ask for the test transcript if you want to rerun it yourself.
+All of the above was smoke-tested end-to-end against the running server,
+including a real import of a full year's Clockify export (1240 rows → 1238
+entries, 2 correctly-flagged duplicates, idempotent on re-import).
+
+**One caveat on the importer:** Clockify's CSV has no timezone info — just
+`DD/MM/YYYY` + `HH:MM:SS`. The importer converts these using the *server's*
+local timezone (via JS `Date` component construction, not string parsing), so
+imported timestamps will be correct only if the machine running this server is
+set to the same timezone your Clockify account used. Worth checking
+`timedatectl` before importing for real.
 
 ## What's deliberately stubbed
 
@@ -65,12 +89,13 @@ ask for the test transcript if you want to rerun it yourself.
   time-entry fields per doc §3.2) but there's no UI for them yet — Stage 1
   doesn't require them.
 - **Calendar** page shows a day's entries in a list, not a real calendar grid.
-- **Import** (Clockify) is a labeled no-op — that's explicitly Stage 2 scope.
 - **Settings/customization** page is a placeholder — that's Stage 5 scope.
 - **Child activities** (`parent_id`) are supported in the schema for the
   Recon → Subdomains/Port scanning/Technology nesting shown in the doc, but
   there's no UI to create a nested activity yet — `api.activities.create`
   already accepts a `parent_id` if you want to wire it up.
+- **Activity colors** — the column exists (same as projects) but there's no
+  picker for it yet; only projects and tags have a color UI right now.
 
 ## Database
 
@@ -78,3 +103,7 @@ Schema lives in `server/src/db/schema.sql` and is applied automatically on
 server start (or manually via `npm run db:migrate`). The SQLite file is
 written to `server/data/tracker.db` and is gitignored — it's your data, not
 a build artifact.
+
+If you already have a `data/tracker.db` from before tags existed, it's fine —
+`server/src/db/migrations.ts` runs an additive `ALTER TABLE` on boot to add
+the new column, so nothing needs to be deleted or recreated.

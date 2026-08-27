@@ -262,3 +262,148 @@ tr:last-child td {
   font-size: 13px;
   padding: 24px 4px;
 }
+
+/* ---- Combobox ---- */
+
+.combobox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 0 10px;
+  min-width: 160px;
+}
+
+.combobox input[type="text"] {
+  background: transparent;
+  border: none;
+  padding: 7px 0;
+  min-width: 100px;
+  flex: 1;
+}
+
+.combobox input[type="text"]:focus {
+  outline: none;
+}
+
+.combobox-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 40;
+  padding: 4px;
+}
+
+.combobox-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.combobox-option:hover,
+.combobox-option.highlighted {
+  background: var(--surface);
+}
+
+.combobox-create {
+  color: var(--accent);
+}
+
+.combobox-empty {
+  color: var(--ink-faint);
+  font-size: 12px;
+  padding: 8px;
+}
+
+/* ---- Tag input ---- */
+
+.tag-input {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+
+.tag-input-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 5px 8px;
+}
+
+.tag-input-chips input[type="text"] {
+  background: transparent;
+  border: none;
+  padding: 4px 2px;
+  flex: 1;
+  min-width: 90px;
+}
+
+.tag-input-chips input[type="text"]:focus {
+  outline: none;
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tag-pill-remove {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 2px;
+  font-size: 14px;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.tag-pill-remove:hover {
+  opacity: 1;
+}
+
+/* ---- Color swatch picker (Projects page) ---- */
+
+.color-swatches {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.color-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.color-swatch.selected {
+  border-color: var(--ink);
+}

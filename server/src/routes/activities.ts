@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { archiveActivity, createActivity, listActivities } from "../models/activity.js";
+import { archiveActivity, getOrCreateActivity, listActivities } from "../models/activity.js";
 
 export const activitiesRouter = Router();
 
@@ -10,12 +10,15 @@ activitiesRouter.get("/", (req, res) => {
   res.json(listActivities(projectId, req.query.includeArchived === "true"));
 });
 
+// Get-or-create by name within the project (case-insensitive) — same
+// combobox-friendly pattern as POST /projects.
 activitiesRouter.post("/", (req, res) => {
-  const { project_id, name, parent_id, color } = req.body ?? {};
-  if (!project_id || !name) {
+  const { project_id, name, parent_id } = req.body ?? {};
+  if (!project_id || !name || !String(name).trim()) {
     return res.status(400).json({ error: "project_id and name are required" });
   }
-  res.status(201).json(createActivity(project_id, name, parent_id, color));
+  const { activity, created } = getOrCreateActivity(project_id, String(name).trim(), parent_id);
+  res.status(created ? 201 : 200).json(activity);
 });
 
 activitiesRouter.post("/:id/archive", (req, res) => {

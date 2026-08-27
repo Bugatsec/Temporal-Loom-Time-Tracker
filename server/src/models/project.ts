@@ -1,4 +1,5 @@
 import { db } from "../db/client.js";
+import { nextColor } from "../db/colors.js";
 import { id } from "../db/ids.js";
 import type { Project } from "../types.js";
 
@@ -13,12 +14,35 @@ export function getProject(projectId: string): Project | undefined {
   return db.prepare("SELECT * FROM projects WHERE id = ?").get(projectId) as Project | undefined;
 }
 
+export function findProjectByName(name: string): Project | undefined {
+  return db
+    .prepare(
+      `SELECT * FROM projects WHERE workspace_id = ? AND lower(name) = lower(?) AND archived_at IS NULL`
+    )
+    .get(DEFAULT_WORKSPACE_ID, name) as Project | undefined;
+}
+
+function projectCount(): number {
+  const row = db.prepare(`SELECT COUNT(*) AS n FROM projects WHERE workspace_id = ?`).get(DEFAULT_WORKSPACE_ID) as {
+    n: number;
+  };
+  return row.n;
+}
+
 export function createProject(name: string, color?: string): Project {
   const newId = id("proj");
   db.prepare(
     `INSERT INTO projects (id, workspace_id, name, color) VALUES (?, ?, ?, ?)`
-  ).run(newId, DEFAULT_WORKSPACE_ID, name, color ?? null);
+  ).run(newId, DEFAULT_WORKSPACE_ID, name, color ?? nextColor(projectCount()));
   return getProject(newId)!;
+}
+
+/** Case-insensitive find-or-create — backs the timer/entry combobox "type
+ *  a new project and it just gets added" flow, and the CSV importer. */
+export function getOrCreateProject(name: string, color?: string): { project: Project; created: boolean } {
+  const existing = findProjectByName(name);
+  if (existing) return { project: existing, created: false };
+  return { project: createProject(name, color), created: true };
 }
 
 export function updateProject(

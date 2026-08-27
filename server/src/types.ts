@@ -53,10 +53,13 @@ export interface TimeEntry {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Attached in application code (see models/timeEntry.ts) — not a real column. */
+  tags?: Tag[];
 }
 
 export interface Tag {
   id: string;
   workspace_id: string;
   name: string;
+  color: string | null;
 }

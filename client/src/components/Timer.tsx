@@ -1,88 +1,71 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { Activity, Project, TimeEntry } from "../api/types";
+import { useTimer } from "../context/TimerContext";
+import { formatElapsed } from "../utils/format";
+import { Combobox, type ComboboxOption } from "./Combobox";
+import { TagInput } from "./TagInput";
+import type { Activity, Project, Tag } from "../api/types";
 
-function formatElapsed(startAt: string): string {
-  const elapsedMs = Date.now() - new Date(startAt).getTime();
-  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
+function toOption(item: { id: string; name: string; color: string | null }): ComboboxOption {
+  return { id: item.id, label: item.name, color: item.color };
 }
 
-interface TimerProps {
-  onStopped?: () => void;
-}
+export function Timer() {
+  const { running, elapsedSeconds, start, stop, error } = useTimer();
 
-export function Timer({ onStopped }: TimerProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [projectId, setProjectId] = useState("");
-  const [activityId, setActivityId] = useState("");
+  const [allTags, setAllTags] = useState<Tag[]>([]);
+
+  const [selectedProject, setSelectedProject] = useState<ComboboxOption | null>(null);
+  const [selectedActivity, setSelectedActivity] = useState<ComboboxOption | null>(null);
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [description, setDescription] = useState("");
-  const [running, setRunning] = useState<TimeEntry | null>(null);
-  const [tick, setTick] = useState(0);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.projects.list().then(setProjects).catch((e) => setError(e.message));
-    api.timeEntries.running().then(setRunning).catch(() => {});
+    api.projects.list().then(setProjects);
+    api.tags.list().then(setAllTags);
   }, []);
 
   useEffect(() => {
-    if (!projectId) {
+    if (!selectedProject) {
       setActivities([]);
       return;
     }
-    api.activities.list(projectId).then(setActivities).catch((e) => setError(e.message));
-  }, [projectId]);
-
-  // Live tick for the running-timer readout — local interval only, no network chatter.
-  useEffect(() => {
-    if (!running) return;
-    const interval = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(interval);
-  }, [running]);
-
-  const elapsed = useMemo(() => (running ? formatElapsed(running.start_at) : "00:00:00"), [running, tick]);
+    api.activities.list(selectedProject.id).then(setActivities);
+  }, [selectedProject?.id]);
 
   async function handleStart() {
-    if (!projectId || !activityId) {
-      setError("Pick a project and activity first");
-      return;
-    }
-    setError(null);
-    try {
-      const entry = await api.timeEntries.start(projectId, activityId, description || undefined);
-      setRunning(entry);
-    } catch (e: any) {
-      setError(e.message);
-    }
+    if (!selectedProject || !selectedActivity) return;
+    await start({
+      project_id: selectedProject.id,
+      activity_id: selectedActivity.id,
+      description: description || undefined,
+      tags: selectedTags.map((t) => t.name),
+    }).catch(() => {});
   }
 
   async function handleStop() {
-    if (!running) return;
-    try {
-      await api.timeEntries.stop(running.id);
-      setRunning(null);
-      setDescription("");
-      onStopped?.();
-    } catch (e: any) {
-      setError(e.message);
-    }
+    await stop().catch(() => {});
+    setDescription("");
+    setSelectedTags([]);
+    // Project/activity stay selected — most people track the same thing repeatedly.
   }
+
+  const runningProject = running ? projects.find((p) => p.id === running.project_id) : undefined;
 
   return (
     <div className="card timer-card">
       <div>
-        <div className={`timer-readout ${running ? "running" : ""}`}>
+        <div className={"timer-readout" + (running ? " running" : "")}>
           {running && <span className="live-dot" />}
-          {elapsed}
+          {formatElapsed(elapsedSeconds)}
         </div>
         {running && (
-          <div className="dim" style={{ marginTop: 4 }}>
-            {projects.find((p) => p.id === running.project_id)?.name ?? "—"}
+          <div className="dim" style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+            {runningProject && <span style={{ color: runningProject.color ?? undefined }}>●</span>}
+            {runningProject?.name ?? "—"}
+            {running.description ? ` · ${running.description}` : ""}
           </div>
         )}
         {error && <div style={{ color: "var(--danger)", marginTop: 6 }}>{error}</div>}
@@ -90,29 +73,55 @@ export function Timer({ onStopped }: TimerProps) {
 
       {!running ? (
         <div className="timer-form">
-          <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-            <option value="">Project…</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <select value={activityId} onChange={(e) => setActivityId(e.target.value)} disabled={!projectId}>
-            <option value="">Activity…</option>
-            {activities.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
+          <Combobox
+            options={projects.map(toOption)}
+            value={selectedProject}
+            placeholder="Project..."
+            onSelect={(opt) => {
+              setSelectedProject(opt);
+              setSelectedActivity(null);
+            }}
+            onCreate={async (name) => {
+              const project = await api.projects.create(name);
+              setProjects((prev) => [...prev, project].sort((a, b) => a.name.localeCompare(b.name)));
+              return toOption(project);
+            }}
+            onClear={() => {
+              setSelectedProject(null);
+              setSelectedActivity(null);
+            }}
+          />
+          <Combobox
+            options={activities.map(toOption)}
+            value={selectedActivity}
+            placeholder="Activity..."
+            disabled={!selectedProject}
+            onSelect={setSelectedActivity}
+            onCreate={async (name) => {
+              if (!selectedProject) throw new Error("Pick a project first");
+              const activity = await api.activities.create(selectedProject.id, name);
+              setActivities((prev) => [...prev, activity].sort((a, b) => a.name.localeCompare(b.name)));
+              return toOption(activity);
+            }}
+            onClear={() => setSelectedActivity(null)}
+          />
           <input
             type="text"
             placeholder="Description (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
-          <button className="primary" onClick={handleStart}>
+          <TagInput
+            allTags={allTags}
+            selected={selectedTags}
+            onChange={setSelectedTags}
+            onCreate={async (name) => {
+              const tag = await api.tags.create(name);
+              setAllTags((prev) => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)));
+              return tag;
+            }}
+          />
+          <button className="primary" onClick={handleStart} disabled={!selectedProject || !selectedActivity}>
             Start
           </button>
         </div>

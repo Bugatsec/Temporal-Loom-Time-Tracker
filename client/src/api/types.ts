@@ -21,6 +21,13 @@ export interface Activity {
 
 export type TimeEntrySource = "manual" | "timer" | "imported" | "api" | "automation";
 
+export interface Tag {
+  id: string;
+  workspace_id: string;
+  name: string;
+  color: string | null;
+}
+
 export interface TimeEntry {
   id: string;
   workspace_id: string;
@@ -37,6 +44,7 @@ export interface TimeEntry {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  tags?: Tag[];
 }
 
 export interface RangeTotal {

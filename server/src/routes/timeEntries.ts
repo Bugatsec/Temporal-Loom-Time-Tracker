@@ -32,12 +32,14 @@ timeEntriesRouter.get("/running", (_req, res) => {
 
 // POST /api/v1/time-entries/start
 timeEntriesRouter.post("/start", (req, res) => {
-  const { project_id, activity_id, target_id, description, billable } = req.body ?? {};
+  const { project_id, activity_id, target_id, description, billable, tags } = req.body ?? {};
   if (!project_id || !activity_id) {
     return res.status(400).json({ error: "project_id and activity_id are required" });
   }
   try {
-    res.status(201).json(startTimer({ project_id, activity_id, target_id, description, billable }));
+    res
+      .status(201)
+      .json(startTimer({ project_id, activity_id, target_id, description, billable, tags }));
   } catch (err: any) {
     if (err.code === "TIMER_ALREADY_RUNNING") {
       return res.status(409).json({ error: err.message, running_entry: err.entry });
@@ -57,7 +59,7 @@ timeEntriesRouter.post("/:id/stop", (req, res) => {
 
 // POST /api/v1/time-entries — manual entry creation (doc 3.1 step: allow immediate edit)
 timeEntriesRouter.post("/", (req, res) => {
-  const { project_id, activity_id, target_id, start_at, end_at, description, billable } =
+  const { project_id, activity_id, target_id, start_at, end_at, description, billable, tags } =
     req.body ?? {};
   if (!project_id || !activity_id || !start_at || !end_at) {
     return res
@@ -68,7 +70,16 @@ timeEntriesRouter.post("/", (req, res) => {
     res
       .status(201)
       .json(
-        createManualEntry({ project_id, activity_id, target_id, start_at, end_at, description, billable })
+        createManualEntry({
+          project_id,
+          activity_id,
+          target_id,
+          start_at,
+          end_at,
+          description,
+          billable,
+          tags,
+        })
       );
   } catch (err: any) {
     res.status(400).json({ error: err.message });

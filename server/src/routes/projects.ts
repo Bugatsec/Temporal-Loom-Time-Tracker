@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {
   archiveProject,
-  createProject,
+  getOrCreateProject,
   getProject,
   listProjects,
   updateProject,
@@ -20,12 +20,16 @@ projectsRouter.get("/:id", (req, res) => {
   res.json(project);
 });
 
+// Get-or-create by name (case-insensitive) — lets the timer combobox
+// "type a new project and it just gets added" without a separate page,
+// while still deduping if you type the name of an existing project.
 projectsRouter.post("/", (req, res) => {
   const { name, color } = req.body ?? {};
-  if (!name || typeof name !== "string") {
+  if (!name || typeof name !== "string" || !name.trim()) {
     return res.status(400).json({ error: "name is required" });
   }
-  res.status(201).json(createProject(name, color));
+  const { project, created } = getOrCreateProject(name.trim(), color);
+  res.status(created ? 201 : 200).json(project);
 });
 
 projectsRouter.patch("/:id", (req, res) => {

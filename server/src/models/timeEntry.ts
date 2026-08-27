@@ -1,23 +1,77 @@
 import { db } from "../db/client.js";
 import { id } from "../db/ids.js";
+import { getOrCreateTag } from "./tag.js";
 import { DEFAULT_WORKSPACE_ID } from "./workspace.js";
-import type { TimeEntry, TimeEntrySource } from "../types.js";
+import type { Tag, TimeEntry, TimeEntrySource } from "../types.js";
+
+/** Replace the full tag set on an entry. Tag names are get-or-created —
+ *  this is what lets the client "type a tag and it just gets added",
+ *  same as projects and activities. */
+export function setEntryTags(entryId: string, tagNames: string[]): void {
+  const tagIds = tagNames
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .map((name) => getOrCreateTag(name).id);
+
+  const tx = db.transaction(() => {
+    db.prepare(`DELETE FROM time_entry_tags WHERE time_entry_id = ?`).run(entryId);
+    const insert = db.prepare(`INSERT INTO time_entry_tags (time_entry_id, tag_id) VALUES (?, ?)`);
+    for (const tagId of tagIds) insert.run(entryId, tagId);
+  });
+  tx();
+}
+
+function tagsForEntries(entryIds: string[]): Map<string, Tag[]> {
+  const map = new Map<string, Tag[]>();
+  if (entryIds.length === 0) return map;
+
+  const placeholders = entryIds.map(() => "?").join(",");
+  const rows = db
+    .prepare(
+      `SELECT ett.time_entry_id AS entry_id, t.*
+       FROM time_entry_tags ett
+       JOIN tags t ON t.id = ett.tag_id
+       WHERE ett.time_entry_id IN (${placeholders})
+       ORDER BY t.name`
+    )
+    .all(...entryIds) as (Tag & { entry_id: string })[];
+
+  for (const row of rows) {
+    const { entry_id, ...tag } = row;
+    if (!map.has(entry_id)) map.set(entry_id, []);
+    map.get(entry_id)!.push(tag);
+  }
+  return map;
+}
+
+function attachTags(entry: TimeEntry): TimeEntry {
+  entry.tags = tagsForEntries([entry.id]).get(entry.id) ?? [];
+  return entry;
+}
+
+function attachTagsToAll(entries: TimeEntry[]): TimeEntry[] {
+  const map = tagsForEntries(entries.map((e) => e.id));
+  for (const entry of entries) entry.tags = map.get(entry.id) ?? [];
+  return entries;
+}
 
 export function getEntry(entryId: string): TimeEntry | undefined {
-  return db
+  const entry = db
     .prepare("SELECT * FROM time_entries WHERE id = ? AND deleted_at IS NULL")
     .get(entryId) as TimeEntry | undefined;
+  return entry ? attachTags(entry) : undefined;
 }
 
 /** Doc 8.2: "Only one active timer is allowed per configured scope unless
  *  multi-timer mode is explicitly enabled." Stage 1 does not implement
  *  multi-timer mode, so this is the single source of truth for that rule. */
 export function getRunningEntry(): TimeEntry | undefined {
-  return db
+  const entry = db
     .prepare(
       `SELECT * FROM time_entries WHERE workspace_id = ? AND end_at IS NULL AND deleted_at IS NULL`
     )
     .get(DEFAULT_WORKSPACE_ID) as TimeEntry | undefined;
+  return entry ? attachTags(entry) : undefined;
 }
 
 export interface StartTimerInput {
@@ -26,6 +80,7 @@ export interface StartTimerInput {
   target_id?: string | null;
   description?: string;
   billable?: boolean;
+  tags?: string[];
 }
 
 export function startTimer(input: StartTimerInput): TimeEntry {
@@ -51,6 +106,7 @@ export function startTimer(input: StartTimerInput): TimeEntry {
     input.description ?? null,
     input.billable ? 1 : 0
   );
+  if (input.tags?.length) setEntryTags(newId, input.tags);
   return getEntry(newId)!;
 }
 
@@ -79,6 +135,7 @@ export interface CreateManualEntryInput {
   description?: string;
   billable?: boolean;
   source?: TimeEntrySource;
+  tags?: string[];
 }
 
 export function createManualEntry(input: CreateManualEntryInput): TimeEntry {
@@ -105,6 +162,7 @@ export function createManualEntry(input: CreateManualEntryInput): TimeEntry {
     input.billable ? 1 : 0,
     input.source ?? "manual"
   );
+  if (input.tags?.length) setEntryTags(newId, input.tags);
   return getEntry(newId)!;
 }
 
@@ -116,6 +174,8 @@ export interface UpdateEntryInput {
   end_at?: string | null;
   description?: string;
   billable?: boolean;
+  /** When provided (including []), replaces the entry's full tag set. */
+  tags?: string[];
 }
 
 /** Doc 8.2: "Manual edits must retain updated_at and source information" —
@@ -155,6 +215,8 @@ export function updateEntry(entryId: string, updates: UpdateEntryInput): TimeEnt
     next.billable,
     entryId
   );
+
+  if (updates.tags !== undefined) setEntryTags(entryId, updates.tags);
 
   return getEntry(entryId);
 }
@@ -196,9 +258,10 @@ export function listEntries(filter: ListEntriesFilter = {}): TimeEntry[] {
   }
 
   const limit = filter.limit ?? 200;
-  return db
+  const entries = db
     .prepare(
       `SELECT * FROM time_entries WHERE ${clauses.join(" AND ")} ORDER BY start_at DESC LIMIT ?`
     )
     .all(...params, limit) as TimeEntry[];
+  return attachTagsToAll(entries);
 }
