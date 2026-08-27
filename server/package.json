@@ -1,5 +1,5 @@
 {
-  "name": "@bug-bounty-life/server",
+  "name": "@temporal-loom/server",
   "private": true,
   "version": "0.1.0",
   "type": "module",

@@ -71,8 +71,11 @@ export const api = {
       request<ProjectBreakdownRow[]>(`/reports/by-project?from=${from}&to=${to}`),
   },
   imports: {
-    clockify: (csv: string) =>
-      request<ImportSummary>("/imports/clockify", { method: "POST", body: JSON.stringify({ csv }) }),
+    clockify: (csv: string, timeZone: string) =>
+      request<ImportSummary>("/imports/clockify", {
+        method: "POST",
+        body: JSON.stringify({ csv, timeZone }),
+      }),
   },
   exportUrl: () => `${BASE}/exports/json`,
 };

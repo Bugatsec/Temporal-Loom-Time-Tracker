@@ -1,35 +1,32 @@
-# Bug Bounty / Life — Stage 1
+# Temporal Loom — Stage 1
 
 Local-first, self-hosted time tracker. This is the **Stage 1: Clockify-compatible
-foundation** build described in the product doc — a working timer, projects,
-activities, time entries, basic reports, and JSON export. Stages 2–5 (Clockify
-import, full analytics engine, Life/Target hierarchy, and the customization
-system) are referenced in code comments where the schema already anticipates
-them, but are not implemented here.
+foundation** build — a working timer, projects, tasks, tags, time entries,
+Clockify CSV import, and a real analytics dashboard.
 
 ## Stack
 
 - **Server:** Node.js + TypeScript + Express + SQLite (`better-sqlite3`)
-- **Client:** React + TypeScript + Vite + React Router
-- SQLite was chosen over Postgres for Stage 1 because the doc explicitly
-  allows it for single-user portable installs (§10), and it needs zero setup
-  for a self-hosted single-user deployment. The domain model doesn't change
-  if you move to Postgres later.
+- **Client:** React + TypeScript + Vite + React Router + Recharts
 
 ## Project layout
 
 ```
 server/
-  src/db/          schema.sql, ULID generator, sqlite client, migration script
-  src/models/       data access: workspace, project, activity, timeEntry
-  src/services/      reportService (totals/breakdown), exportService (JSON export)
-  src/routes/       REST endpoints, mounted under /api/v1
-  src/index.ts       app entry point (binds to 127.0.0.1 by default)
+  src/db/          schema.sql, ULID generator, sqlite client, migrations.ts
+  src/models/       workspace, project, activity, tag, timeEntry
+  src/services/      reportService, exportService, csv.ts, importClockify.ts
+  src/routes/       REST endpoints under /api/v1 (projects, activities, tags,
+                     time-entries, reports, exports, imports)
+  src/index.ts       app entry point
 client/
   src/api/          typed fetch client + shared types
-  src/components/    Sidebar, Timer (live-ticking start/stop), EntryList
-  src/pages/          Dashboard, TimeEntries, Projects, Activities, Calendar,
-                       Reports, Settings, ImportExport — the 8 Stage 1 screens
+  src/context/       TimerContext — global running-timer state + live tab title
+  src/components/    Sidebar, Timer, ProjectTaskPicker, Combobox, TagInput,
+                     GroupedEntryList, ColorDot
+  src/pages/          TimeTracker (/), Dashboard (/dashboard), TimeEntries,
+                       Projects, Activities, Calendar, Reports, ImportExport,
+                       Settings
 ```
 
 ## Running it
@@ -37,73 +34,72 @@ client/
 ```bash
 npm install                # from the repo root — installs both workspaces
 cp server/.env.example server/.env
-npm run dev                # starts the API on :4310 and the client on :5173
+npm run dev                # API on :4310, client on :5173, both bound to
+                            # 0.0.0.0 so other devices on your LAN can reach it
 ```
 
-Open http://localhost:5173. The Vite dev server proxies `/api` to the Express
-server, so you don't need CORS config for local dev.
+## What's here
 
-To run just one side: `npm run dev:server` or `npm run dev:client`.
-
-## What's implemented (Stage 1 acceptance criteria)
-
-- Create a project and activity — inline, from combobox fields on the timer bar
-  or the manual-entry form. No separate "create project" page required; typing
-  a name that doesn't exist yet creates it, typing one that does just selects it
-  (case-insensitive).
-- Start/stop a timer; only one timer can run at a time (409 on conflict)
-- **Live browser tab title** while a timer runs — e.g. `34:22 - Bug Bounty / Life`
-  (no leading `00:` hour), ticking every second regardless of which page inside
-  the app is open, as long as the tab itself is open (`TimerContext`, mounted
-  above the router)
-- **Projects have colors** — auto-assigned from a palette on creation, changeable
-  from the Projects page; a colored dot renders next to the project name
-  everywhere it appears (comboboxes, entry list, Projects page)
-- **Tags with colors** — same type-to-create combobox pattern, rendered as
-  colored pills on entries
-- Manual time entry creation and editing
-- Soft delete (entries are recoverable, never hard-deleted from the UI)
-- Daily/weekly/monthly totals and a per-project breakdown
-- Full-workspace JSON export, versioned (`schema_version`)
-- **Clockify CSV import** (Import/Export page) — upload the export file directly;
-  projects/tags are matched by name or created; since Clockify's "Task" field
-  wasn't used in the sample export, imported entries land under a per-project
-  "General" activity, with the real description and tags preserved. Re-uploading
-  the same file is a safe no-op — already-imported entries are detected by
-  project+activity+start+end and skipped.
+- **Time Tracker** (`/`) — the actual tracking UI: a timer bar and a grouped
+  list of recent entries. This used to be called "Dashboard"; that name now
+  belongs to the analytics page, matching Clockify's own split.
+- **Dashboard** (`/dashboard`) — analytics: total time / top project / most
+  logged activity for the selected range, a stacked daily bar chart (one
+  color segment per project), and a donut + legend breakdown. Toggle
+  week/month and step through periods with the arrows.
+- **Combined Project + Task picker** — one control instead of two dropdowns.
+  Click it to search/select a project; expand a project to pick or create a
+  task under it inline (Clockify calls tasks "Tasks", we call the underlying
+  column `activities` — same thing). Picking a project with no task selects
+  a hidden "General" task behind the scenes so the data model still always
+  has a concrete activity_id; the UI just doesn't show "General" anywhere.
+  Selecting `Project: Task` renders as e.g. `Hunting: Recon`.
+- **Grouped, collapsible entry list** — entries are grouped by day, then by
+  project+task within the day. Two "Hunting" sessions in a day show as one
+  row with a count badge and the combined total; click to expand and see
+  each session's individual start/end time, description, and tags.
+- **Play/replay button** — every summary row and every expanded entry has a
+  ▶ button that instantly starts a new timer with that exact project, task,
+  description, and tags (stopping whatever's currently running first, same
+  as Clockify).
+- **Tags and project colors**, both with a full custom color picker (preset
+  swatches + a native color wheel) in addition to the auto-assigned palette.
+- **Clockify CSV import** (Import/Export page) — upload the export directly.
+  Projects/tags are matched by name or created; since Clockify's "Task"
+  field wasn't used in the sample export, entries land under each project's
+  "General" task with the real description/tags intact. Re-uploading the
+  same file is a safe no-op. Timestamps are converted using **your browser's
+  timezone** (sent automatically with the upload), not the server's system
+  timezone — this fixes an earlier version that produced wrong totals when
+  the two didn't match.
+- Soft delete, daily/weekly/monthly report totals, full JSON export.
 
 All of the above was smoke-tested end-to-end against the running server,
-including a real import of a full year's Clockify export (1240 rows → 1238
-entries, 2 correctly-flagged duplicates, idempotent on re-import).
+including a full year's Clockify import (1240 rows → 1238 entries, 2 correctly
+-flagged duplicates, idempotent on re-import, correct UTC conversion verified
+against a known IST timestamp).
 
-**One caveat on the importer:** Clockify's CSV has no timezone info — just
-`DD/MM/YYYY` + `HH:MM:SS`. The importer converts these using the *server's*
-local timezone (via JS `Date` component construction, not string parsing), so
-imported timestamps will be correct only if the machine running this server is
-set to the same timezone your Clockify account used. Worth checking
-`timedatectl` before importing for real.
+## If you already imported data with the old (buggy) importer
+
+An earlier version of the importer trusted the *server's* system timezone
+instead of your browser's, which silently mis-dates entries if the two don't
+match (yours didn't — the server defaults to UTC). That's now fixed, but your
+existing `server/data/tracker.db` still has the old, wrongly-shifted
+timestamps in it. Before re-importing:
+
+```bash
+rm -rf server/data
+```
+
+Then restart the server and re-upload your CSV — it'll come in with correct
+timestamps this time.
 
 ## What's deliberately stubbed
 
-- **Targets** exist in the schema (`target_id` is part of the minimum
-  time-entry fields per doc §3.2) but there's no UI for them yet — Stage 1
-  doesn't require them.
-- **Calendar** page shows a day's entries in a list, not a real calendar grid.
-- **Settings/customization** page is a placeholder — that's Stage 5 scope.
-- **Child activities** (`parent_id`) are supported in the schema for the
-  Recon → Subdomains/Port scanning/Technology nesting shown in the doc, but
-  there's no UI to create a nested activity yet — `api.activities.create`
-  already accepts a `parent_id` if you want to wire it up.
-- **Activity colors** — the column exists (same as projects) but there's no
-  picker for it yet; only projects and tags have a color UI right now.
-
-## Database
-
-Schema lives in `server/src/db/schema.sql` and is applied automatically on
-server start (or manually via `npm run db:migrate`). The SQLite file is
-written to `server/data/tracker.db` and is gitignored — it's your data, not
-a build artifact.
-
-If you already have a `data/tracker.db` from before tags existed, it's fine —
-`server/src/db/migrations.ts` runs an additive `ALTER TABLE` on boot to add
-the new column, so nothing needs to be deleted or recreated.
+- **Targets** exist in the schema but have no UI yet.
+- **Activity colors** — the column exists (like projects) but there's no
+  picker for it yet.
+- **Calendar** page is a single-day grouped list, not a real calendar grid.
+- **Settings/customization** page is a placeholder.
+- Dashboard's daily chart always shows every day in the selected range
+  (even zero-activity days) for a continuous x-axis, matching Clockify.

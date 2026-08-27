@@ -16,7 +16,8 @@ export default function ImportExport() {
     setFileName(file.name);
     try {
       const text = await file.text();
-      const result = await api.imports.clockify(text);
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const result = await api.imports.clockify(text, timeZone);
       setSummary(result);
     } catch (e: any) {
       setError(e.message);
@@ -40,7 +41,9 @@ export default function ImportExport() {
           created if they don't exist yet) — since Clockify's "Task" field wasn't used in your
           export, imported entries are filed under a "General" activity per project, with the
           original description and tags kept intact. Re-uploading the same file is safe — entries
-          already imported are detected and skipped.
+          already imported are detected and skipped. Timestamps are converted using your browser's
+          timezone, so start/end times land on the correct day even if this server itself is set
+          to a different timezone.
         </p>
         <input
           ref={fileInputRef}

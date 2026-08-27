@@ -1,5 +1,5 @@
 {
-  "name": "bug-bounty-life",
+  "name": "temporal-loom",
   "private": true,
   "version": "0.1.0",
   "description": "Local-first, self-hosted time & life tracker — Stage 1 (Clockify-compatible foundation)",

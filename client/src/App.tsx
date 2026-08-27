@@ -9,6 +9,7 @@ import Projects from "./pages/Projects";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import TimeEntries from "./pages/TimeEntries";
+import TimeTracker from "./pages/TimeTracker";
 
 export default function App() {
   return (
@@ -19,7 +20,8 @@ export default function App() {
       <div className="app-shell">
         <Sidebar />
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<TimeTracker />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/entries" element={<TimeEntries />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/activities" element={<Activities />} />

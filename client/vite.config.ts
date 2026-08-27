@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    host: true,
+    host: true, // binds to 0.0.0.0 so other devices on the LAN can reach it
     proxy: {
       "/api": {
         target: "http://127.0.0.1:4310",

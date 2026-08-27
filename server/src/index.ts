@@ -43,5 +43,5 @@ const port = Number(process.env.PORT ?? 4310);
 const host = process.env.HOST ?? "127.0.0.1"; // localhost-only by default — doc section 17
 
 app.listen(port, host, () => {
-  console.log(`bug-bounty-life server listening on http://${host}:${port}`);
+  console.log(`Temporal Loom server listening on http://${host}:${port}`);
 });

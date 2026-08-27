@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import { EntryList } from "../components/EntryList";
+import { GroupedEntryList } from "../components/GroupedEntryList";
 import type { Activity, Project, TimeEntry } from "../api/types";
 
 export default function Calendar() {
@@ -38,7 +38,7 @@ export default function Calendar() {
       </div>
 
       <div className="card">
-        <EntryList entries={entries} projects={projects} activities={activities} />
+        <GroupedEntryList entries={entries} projects={projects} activities={activities} groupByDay={false} />
       </div>
     </div>
   );
