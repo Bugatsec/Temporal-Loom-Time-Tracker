@@ -1,5 +1,4 @@
 # 🚧 CURRENTLY IN DEVELOPMENT 🚧
-# Bug Bounty / Life — Stage 1
 
 Local-first, self-hosted time tracker. This is the **Stage 1: Clockify-compatible
 foundation** build described in the product doc — a working timer, projects,
