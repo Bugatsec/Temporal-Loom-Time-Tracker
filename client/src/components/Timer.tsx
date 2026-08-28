@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import { useTimer } from "../context/TimerContext";
 import { formatElapsed } from "../utils/format";
 import { ProjectTaskPicker, type ProjectTaskSelection } from "./ProjectTaskPicker";
-import { TagInput } from "./TagInput";
+import { TagPicker } from "./TagPicker";
 import type { Project, Tag } from "../api/types";
 
 export function Timer() {
@@ -62,7 +62,7 @@ export function Timer() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
-          <TagInput
+          <TagPicker
             allTags={allTags}
             selected={selectedTags}
             onChange={setSelectedTags}
