@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { GroupedEntryList } from "../components/GroupedEntryList";
 import { ProjectTaskPicker, type ProjectTaskSelection } from "../components/ProjectTaskPicker";
-import { TagInput } from "../components/TagInput";
+import { TagPicker } from "../components/TagPicker";
 import { useTimer } from "../context/TimerContext";
 import type { Activity, Project, Tag, TimeEntry } from "../api/types";
 
@@ -22,7 +22,7 @@ export default function TimeEntries() {
   const [error, setError] = useState<string | null>(null);
 
   function refresh() {
-    api.timeEntries.list({ limit: "200" }).then(setEntries);
+    api.timeEntries.list({ limit: "500" }).then(setEntries);
     api.projects.list().then(setProjects);
     api.tags.list().then(setAllTags);
   }
@@ -66,11 +66,6 @@ export default function TimeEntries() {
     }
   }
 
-  async function handleDelete(id: string) {
-    await api.timeEntries.remove(id);
-    refresh();
-  }
-
   return (
     <div className="main">
       <h1 className="page-title">Time Entries</h1>
@@ -95,7 +90,7 @@ export default function TimeEntries() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
-            <TagInput
+            <TagPicker
               allTags={allTags}
               selected={formTags}
               onChange={setFormTags}
@@ -113,9 +108,7 @@ export default function TimeEntries() {
         {error && <div style={{ color: "var(--danger)", marginTop: 8 }}>{error}</div>}
       </div>
 
-      <div className="card">
-        <GroupedEntryList entries={entries} projects={projects} activities={activities} onDelete={handleDelete} />
-      </div>
+      <GroupedEntryList entries={entries} projects={projects} activities={activities} groupByWeek onChanged={refresh} />
     </div>
   );
 }

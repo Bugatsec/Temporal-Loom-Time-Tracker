@@ -25,6 +25,12 @@ export default function Calendar() {
     api.timeEntries.list({ from, to, limit: "200" }).then(setEntries);
   }, [date]);
 
+  function refresh() {
+    const from = new Date(`${date}T00:00:00`).toISOString();
+    const to = new Date(`${date}T23:59:59`).toISOString();
+    api.timeEntries.list({ from, to, limit: "200" }).then(setEntries);
+  }
+
   return (
     <div className="main">
       <h1 className="page-title">Calendar</h1>
@@ -37,9 +43,13 @@ export default function Calendar() {
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
       </div>
 
-      <div className="card">
-        <GroupedEntryList entries={entries} projects={projects} activities={activities} groupByDay={false} />
-      </div>
+      <GroupedEntryList
+        entries={entries}
+        projects={projects}
+        activities={activities}
+        groupByDay={false}
+        onChanged={refresh}
+      />
     </div>
   );
 }

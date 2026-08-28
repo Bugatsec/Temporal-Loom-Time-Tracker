@@ -21,16 +21,17 @@ export default function TimeTracker() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [todayTotal, setTodayTotal] = useState<RangeTotal | null>(null);
 
-  useEffect(() => {
+  function refresh() {
     const { from, to } = todayRange();
-    // Pull a week's worth so the grouped list has more than just today to
-    // show, same as Clockify's "This week" default view.
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    api.timeEntries.list({ from: weekAgo.toISOString(), limit: "200" }).then(setEntries);
+    // 14 days back covers "This week" + "Last week" boxes.
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    api.timeEntries.list({ from: twoWeeksAgo.toISOString(), limit: "1000" }).then(setEntries);
     api.projects.list().then(setProjects);
     api.reports.summary(from, to).then(setTodayTotal);
-  }, [version]);
+  }
+
+  useEffect(refresh, [version]);
 
   useEffect(() => {
     Promise.all(projects.map((p) => api.activities.list(p.id))).then((lists) =>
@@ -41,7 +42,7 @@ export default function TimeTracker() {
   return (
     <div className="main">
       <h1 className="page-title">Time Tracker</h1>
-      <p className="page-subtitle">Start a timer, or see where your week went.</p>
+      <p className="page-subtitle">Start a timer, or see where your time went.</p>
 
       <Timer />
 
@@ -54,9 +55,13 @@ export default function TimeTracker() {
         </div>
       </div>
 
-      <div className="card">
-        <GroupedEntryList entries={entries} projects={projects} activities={activities} />
-      </div>
+      <GroupedEntryList
+        entries={entries}
+        projects={projects}
+        activities={activities}
+        groupByWeek
+        onChanged={refresh}
+      />
     </div>
   );
 }

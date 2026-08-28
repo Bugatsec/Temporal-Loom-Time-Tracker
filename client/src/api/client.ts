@@ -60,7 +60,7 @@ export const api = {
       description?: string;
       tags?: string[];
     }) => request<TimeEntry>("/time-entries", { method: "POST", body: JSON.stringify(input) }),
-    update: (id: string, updates: Partial<TimeEntry> & { tags?: string[] }) =>
+    update: (id: string, updates: Partial<Omit<TimeEntry, "tags">> & { tags?: string[] }) =>
       request<TimeEntry>(`/time-entries/${id}`, { method: "PATCH", body: JSON.stringify(updates) }),
     remove: (id: string) => request<void>(`/time-entries/${id}`, { method: "DELETE" }),
   },
