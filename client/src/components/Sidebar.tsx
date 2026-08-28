@@ -10,7 +10,6 @@ const ANALYZE = [
 
 const MANAGE = [
   { to: "/projects", label: "Projects" },
-  { to: "/activities", label: "Activities" },
   { to: "/import-export", label: "Import / Export" },
   { to: "/settings", label: "Settings" },
 ];

@@ -1,7 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { TimerProvider } from "./context/TimerContext";
-import Activities from "./pages/Activities";
 import Calendar from "./pages/Calendar";
 import Dashboard from "./pages/Dashboard";
 import ImportExport from "./pages/ImportExport";
@@ -24,7 +23,6 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/entries" element={<TimeEntries />} />
           <Route path="/projects" element={<Projects />} />
-          <Route path="/activities" element={<Activities />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/import-export" element={<ImportExport />} />
