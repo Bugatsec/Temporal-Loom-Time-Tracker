@@ -1,105 +1,98 @@
-# 🚧 CURRENTLY IN DEVELOPMENT 🚧
+# Temporal Loom — Stage 1 + Stage 3
 
-Local-first, self-hosted time tracker. This is the **Stage 1: Clockify-compatible
-foundation** build — a working timer, projects, tasks, tags, time entries,
-Clockify CSV import, and a real analytics dashboard.
+Local-first, self-hosted time tracker. Stage 1 (Clockify-compatible
+foundation) and the core of Stage 3 (analytics/date-range engine) are
+implemented.
 
 ## Stack
 
 - **Server:** Node.js + TypeScript + Express + SQLite (`better-sqlite3`)
 - **Client:** React + TypeScript + Vite + React Router + Recharts
 
-## Project layout
-
-```
-server/
-  src/db/          schema.sql, ULID generator, sqlite client, migrations.ts
-  src/models/       workspace, project, activity, tag, timeEntry
-  src/services/      reportService, exportService, csv.ts, importClockify.ts
-  src/routes/       REST endpoints under /api/v1 (projects, activities, tags,
-                     time-entries, reports, exports, imports)
-  src/index.ts       app entry point
-client/
-  src/api/          typed fetch client + shared types
-  src/context/       TimerContext — global running-timer state + live tab title
-  src/components/    Sidebar, Timer, ProjectTaskPicker, Combobox, TagInput,
-                     GroupedEntryList, ColorDot
-  src/pages/          TimeTracker (/), Dashboard (/dashboard), TimeEntries,
-                       Projects, Activities, Calendar, Reports, ImportExport,
-                       Settings
-```
-
 ## Running it
 
 ```bash
-npm install                # from the repo root — installs both workspaces
+npm install
 cp server/.env.example server/.env
-npm run dev                # API on :4310, client on :5173, both bound to
-                            # 0.0.0.0 so other devices on your LAN can reach it
+npm run dev   # API on :4310, client on :5173, both on 0.0.0.0
 ```
 
-## What's here
+## Time Tracker (`/`)
 
-- **Time Tracker** (`/`) — the actual tracking UI: a timer bar and a grouped
-  list of recent entries. This used to be called "Dashboard"; that name now
-  belongs to the analytics page, matching Clockify's own split.
-- **Dashboard** (`/dashboard`) — analytics: total time / top project / most
-  logged activity for the selected range, a stacked daily bar chart (one
-  color segment per project), and a donut + legend breakdown. Toggle
-  week/month and step through periods with the arrows.
-- **Combined Project + Task picker** — one control instead of two dropdowns.
-  Click it to search/select a project; expand a project to pick or create a
-  task under it inline (Clockify calls tasks "Tasks", we call the underlying
-  column `activities` — same thing). Picking a project with no task selects
-  a hidden "General" task behind the scenes so the data model still always
-  has a concrete activity_id; the UI just doesn't show "General" anywhere.
-  Selecting `Project: Task` renders as e.g. `Hunting: Recon`.
-- **Grouped, collapsible entry list** — entries are grouped by day, then by
-  project+task within the day. Two "Hunting" sessions in a day show as one
-  row with a count badge and the combined total; click to expand and see
-  each session's individual start/end time, description, and tags.
-- **Play/replay button** — every summary row and every expanded entry has a
-  ▶ button that instantly starts a new timer with that exact project, task,
-  description, and tags (stopping whatever's currently running first, same
-  as Clockify).
-- **Tags and project colors**, both with a full custom color picker (preset
-  swatches + a native color wheel) in addition to the auto-assigned palette.
-- **Clockify CSV import** (Import/Export page) — upload the export directly.
-  Projects/tags are matched by name or created; since Clockify's "Task"
-  field wasn't used in the sample export, entries land under each project's
-  "General" task with the real description/tags intact. Re-uploading the
-  same file is a safe no-op. Timestamps are converted using **your browser's
-  timezone** (sent automatically with the upload), not the server's system
-  timezone — this fixes an earlier version that produced wrong totals when
-  the two didn't match.
-- Soft delete, daily/weekly/monthly report totals, full JSON export.
+- **Combined Project + Task picker** — no separate Activity page. Click it,
+  search/select a project, expand to pick or create a task inline. Picking
+  a project alone selects a hidden "General" task behind the scenes.
+- **Tag picker** — icon button + search + checkbox list (matches Clockify),
+  not an inline input box.
+- **Grouping matches Clockify's real behavior**: same day + same project +
+  same task + same description collapses into one row with a count badge
+  and combined total. A different description is always its own row, even
+  under the same project — this replaces an earlier version that grouped by
+  project alone, which didn't match your screenshots.
+- **Row layout**: count badge → description → project (dot + name) → tags →
+  start–end time → total → play button → ⋮ menu (Edit / Delete).
+- **Play button** replays that exact project/task/description/tags as a new
+  running timer (stopping whatever's running first).
+- **Inline editing** — ⋮ → Edit expands the row into an editable form
+  (project/task, description, tags, start/end time as `<input type="time">`).
+  Saving PATCHes the entry; duration and all totals recompute from the
+  updated list, no page reload.
+- **Boxed day/week layout** — each day is its own bordered box with a
+  header (day name left, `Total: HH:MM:SS` right); days are grouped under
+  "This week" / "Last week" sections with a `Week total:` header. Week
+  starts Monday.
 
-All of the above was smoke-tested end-to-end against the running server,
-including a full year's Clockify import (1240 rows → 1238 entries, 2 correctly
--flagged duplicates, idempotent on re-import, correct UTC conversion verified
-against a known IST timestamp).
+## Dashboard (`/dashboard`) and Reports (`/reports`)
 
-## If you already imported data with the old (buggy) importer
+Both now share one range-preset engine (`utils/range.ts`):
+**Today, Yesterday, This week, Last week, This month, Last month, This
+year, Last year, All time, Custom range** — plus prev/next arrows that
+step by the preset's own unit (day/week/month/year; hidden for All
+time/Custom, which don't have a meaningful "next").
 
-An earlier version of the importer trusted the *server's* system timezone
-instead of your browser's, which silently mis-dates entries if the two don't
-match (yours didn't — the server defaults to UTC). That's now fixed, but your
-existing `server/data/tracker.db` still has the old, wrongly-shifted
-timestamps in it. Before re-importing:
+- **Dashboard**: total time / top project / most-logged-activity stat
+  cards, a stacked daily bar chart (segment per project, color-matched),
+  and a donut + legend breakdown. Daily chart is capped at 366 bars for
+  very large ranges (All time), switching to month-only x-axis labels
+  past ~90 days.
+- **Reports**: total + per-project breakdown table for the selected range.
 
-```bash
-rm -rf server/data
-```
+## Stage 3 status — what's done vs. deferred
 
-Then restart the server and re-upload your CSV — it'll come in with correct
-timestamps this time.
+Done: the full date-range preset set (including All time), applied
+consistently across Dashboard and Reports; interactive charts;
+project-level drill-down (expand a group in Time Tracker/Time Entries to
+see the underlying sessions).
+
+Deferred (flagged, not silently skipped):
+- **Hierarchical rollups** — child activities (`parent_id`) exist in the
+  schema but nothing sums them into a parent's total yet.
+- **Saved report views** — no way to save a range+filter combo yet.
+- **CSV/HTML/PDF report export** — only whole-workspace JSON export exists;
+  no per-report export in other formats.
+- **True drill-down from any arbitrary aggregation node** — works for a
+  project+task+description group on a given day; doesn't yet work as a
+  general "click any total anywhere, see its entries" mechanism.
+
+## Import from Clockify (Import/Export page)
+
+Upload the CSV directly. Projects/tags matched by name or created; since
+Clockify's "Task" field wasn't used in the sample export, entries land
+under each project's "General" task with the real description/tags
+intact. Re-uploading the same file is a safe no-op.
+
+**Timestamps are converted using your browser's timezone** (sent
+automatically with the upload) — this fixed an earlier bug where the
+importer trusted the server's own system timezone (which defaults to UTC
+here), producing wrong day-boundaries and inflated range totals.
+
+If you already imported data with the old importer, delete
+`server/data/` before re-importing — the old entries have the wrong
+offset baked in and won't dedupe correctly against corrected ones.
 
 ## What's deliberately stubbed
 
-- **Targets** exist in the schema but have no UI yet.
-- **Activity colors** — the column exists (like projects) but there's no
-  picker for it yet.
+- **Targets** — schema exists, no UI.
+- **Activity colors** — schema exists, no picker (only projects/tags have one).
 - **Calendar** page is a single-day grouped list, not a real calendar grid.
 - **Settings/customization** page is a placeholder.
-- Dashboard's daily chart always shows every day in the selected range
-  (even zero-activity days) for a continuous x-axis, matching Clockify.
