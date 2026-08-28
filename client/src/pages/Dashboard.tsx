@@ -1,58 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../api/client";
+import { RangePicker } from "../components/RangePicker";
+import { localDateKey } from "../utils/date";
 import { formatTotal } from "../utils/format";
+import { rangeForPreset, type RangePreset } from "../utils/range";
 import type { Activity, Project, TimeEntry } from "../api/types";
 
-type RangeMode = "week" | "month";
-
-function pad2(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-function dateKey(d: Date): string {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
-function rangeFor(mode: RangeMode, anchor: Date): { from: Date; to: Date } {
-  if (mode === "week") {
-    const from = new Date(anchor);
-    from.setDate(anchor.getDate() - anchor.getDay());
-    from.setHours(0, 0, 0, 0);
-    const to = new Date(from);
-    to.setDate(to.getDate() + 7);
-    return { from, to };
-  }
-  const from = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
-  const to = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1);
-  return { from, to };
-}
-
-function rangeLabel(mode: RangeMode, from: Date): string {
-  if (mode === "week") {
-    return `Week of ${from.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
-  }
-  return from.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-}
-
 export default function Dashboard() {
-  const [mode, setMode] = useState<RangeMode>("month");
-  const [anchor, setAnchor] = useState(new Date());
+  const [rangeValue, setRangeValue] = useState<{
+    preset: RangePreset;
+    anchor: Date;
+    customFrom?: Date;
+    customTo?: Date;
+  }>({ preset: "this_month", anchor: new Date() });
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
 
-  const { from, to } = rangeFor(mode, anchor);
+  const range = rangeForPreset(rangeValue.preset, rangeValue.anchor, rangeValue.customFrom, rangeValue.customTo);
 
   useEffect(() => {
     api.projects.list().then(setProjects);
@@ -65,9 +31,11 @@ export default function Dashboard() {
   }, [projects]);
 
   useEffect(() => {
-    api.timeEntries.list({ from: from.toISOString(), to: to.toISOString(), limit: "5000" }).then(setEntries);
+    api.timeEntries
+      .list({ from: range.from.toISOString(), to: range.to.toISOString(), limit: "5000" })
+      .then(setEntries);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, anchor.getTime()]);
+  }, [rangeValue.preset, rangeValue.anchor.getTime(), rangeValue.customFrom?.getTime(), rangeValue.customTo?.getTime()]);
 
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
   const activityById = useMemo(() => new Map(activities.map((a) => [a.id, a])), [activities]);
@@ -86,7 +54,7 @@ export default function Dashboard() {
     const map = new Map<string, number>();
     for (const e of entries) {
       const name = activityById.get(e.activity_id)?.name ?? "—";
-      if (name === "General") continue; // the invisible fallback task isn't a real "activity"
+      if (name === "General") continue;
       map.set(name, (map.get(name) ?? 0) + (e.duration_seconds ?? 0));
     }
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
@@ -95,53 +63,40 @@ export default function Dashboard() {
   const topProject = byProject[0];
   const topActivity = byActivityName[0];
 
-  // Fill every day in range (even zero days) so the bar chart's x-axis is continuous.
+  // Fill every day in range (even zero days) so the bar chart's x-axis is
+  // continuous. Capped so "All time"/large custom ranges don't try to
+  // render thousands of empty bars.
   const dailyChartData = useMemo(() => {
     const days: { date: string; label: string; [projectId: string]: string | number }[] = [];
-    const cursor = new Date(from);
-    while (cursor < to) {
-      const key = dateKey(cursor);
+    const spanDays = Math.round((range.to.getTime() - range.from.getTime()) / 86400000);
+    const cursor = new Date(range.from);
+    const cap = 366;
+    let i = 0;
+    while (cursor < range.to && i < cap) {
+      const key = localDateKey(cursor.toISOString());
       const row: { date: string; label: string; [projectId: string]: string | number } = {
         date: key,
-        label: String(cursor.getDate()),
+        label: spanDays > 90 ? cursor.toLocaleDateString(undefined, { month: "short" }) : String(cursor.getDate()),
       };
       for (const p of projects) row[p.id] = 0;
       days.push(row);
       cursor.setDate(cursor.getDate() + 1);
+      i++;
     }
     const byDate = new Map(days.map((d) => [d.date, d]));
     for (const e of entries) {
-      const key = dateKey(new Date(e.start_at));
+      const key = localDateKey(e.start_at);
       const row = byDate.get(key);
       if (row) row[e.project_id] = (Number(row[e.project_id]) || 0) + (e.duration_seconds ?? 0) / 3600;
     }
     return days;
-  }, [entries, projects, from, to]);
-
-  function shiftAnchor(dir: 1 | -1) {
-    const next = new Date(anchor);
-    if (mode === "week") next.setDate(next.getDate() + dir * 7);
-    else next.setMonth(next.getMonth() + dir);
-    setAnchor(next);
-  }
+  }, [entries, projects, range.from, range.to]);
 
   return (
     <div className="main" style={{ maxWidth: 1100 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <h1 className="page-title">Dashboard</h1>
-        <div className="timer-form">
-          <button className={mode === "week" ? "primary" : ""} onClick={() => setMode("week")}>
-            This week
-          </button>
-          <button className={mode === "month" ? "primary" : ""} onClick={() => setMode("month")}>
-            This month
-          </button>
-          <button onClick={() => shiftAnchor(-1)}>&larr;</button>
-          <span className="dim mono" style={{ fontSize: 12 }}>
-            {rangeLabel(mode, from)}
-          </span>
-          <button onClick={() => shiftAnchor(1)}>&rarr;</button>
-        </div>
+        <RangePicker value={rangeValue} onChange={setRangeValue} />
       </div>
       <p className="page-subtitle">Where your time actually went.</p>
 

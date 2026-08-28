@@ -1,51 +1,37 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { RangePicker } from "../components/RangePicker";
 import { formatTotal } from "../utils/format";
+import { rangeForPreset, type RangePreset } from "../utils/range";
 import type { ProjectBreakdownRow, RangeTotal } from "../api/types";
 
-type RangeKey = "today" | "week" | "month";
-
-function rangeFor(key: RangeKey): { from: string; to: string } {
-  const now = new Date();
-  const to = new Date();
-  let from: Date;
-
-  if (key === "today") {
-    from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  } else if (key === "week") {
-    from = new Date(now);
-    from.setDate(now.getDate() - now.getDay()); // configured week start — Stage 1 assumes Sunday
-    from.setHours(0, 0, 0, 0);
-  } else {
-    from = new Date(now.getFullYear(), now.getMonth(), 1);
-  }
-  return { from: from.toISOString(), to: to.toISOString() };
-}
-
 export default function Reports() {
-  const [range, setRange] = useState<RangeKey>("week");
+  const [rangeValue, setRangeValue] = useState<{
+    preset: RangePreset;
+    anchor: Date;
+    customFrom?: Date;
+    customTo?: Date;
+  }>({ preset: "this_week", anchor: new Date() });
   const [summary, setSummary] = useState<RangeTotal | null>(null);
   const [breakdown, setBreakdown] = useState<ProjectBreakdownRow[]>([]);
 
+  const range = rangeForPreset(rangeValue.preset, rangeValue.anchor, rangeValue.customFrom, rangeValue.customTo);
+
   useEffect(() => {
-    const { from, to } = rangeFor(range);
+    const from = range.from.toISOString();
+    const to = range.to.toISOString();
     api.reports.summary(from, to).then(setSummary);
     api.reports.byProject(from, to).then(setBreakdown);
-  }, [range]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeValue.preset, rangeValue.anchor.getTime(), rangeValue.customFrom?.getTime(), rangeValue.customTo?.getTime()]);
 
   return (
     <div className="main">
       <h1 className="page-title">Reports</h1>
-      <p className="page-subtitle">
-        Totals for a range, broken down by project. Full hierarchical drill-down arrives in Stage 3.
-      </p>
+      <p className="page-subtitle">Totals for any range, broken down by project.</p>
 
-      <div className="card timer-form">
-        {(["today", "week", "month"] as RangeKey[]).map((k) => (
-          <button key={k} className={range === k ? "primary" : ""} onClick={() => setRange(k)}>
-            {k === "today" ? "Today" : k === "week" ? "This week" : "This month"}
-          </button>
-        ))}
+      <div className="card">
+        <RangePicker value={rangeValue} onChange={setRangeValue} />
       </div>
 
       <div className="card">
