@@ -135,8 +135,6 @@ export function GroupedEntryList({
 }: GroupedEntryListProps) {
   const { running, start, stop } = useTimer();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [allTags, setAllTags] = useState<Tag[]>([]);
 
   useEffect(() => {
@@ -146,7 +144,6 @@ export function GroupedEntryList({
   const days = useMemo(() => buildDayGroups(entries), [entries]);
   const weeks = useMemo(() => (groupByWeek ? buildWeekGroups(days) : []), [days, groupByWeek]);
   const project = (id: string) => projects.find((p) => p.id === id);
-  const activity = (id: string) => activities.find((a) => a.id === id);
 
   function toggle(key: string) {
     setExpanded((prev) => {
@@ -168,7 +165,6 @@ export function GroupedEntryList({
   }
 
   async function handleDelete(id: string) {
-    setMenuOpenFor(null);
     await api.timeEntries.remove(id);
     onChanged?.();
   }
@@ -231,33 +227,20 @@ export function GroupedEntryList({
                 >
                   &#9654;
                 </button>
-                <span className="entry-menu-wrap" onClick={(e) => e.stopPropagation()}>
+                {group.entries.length === 1 ? (
                   <button
                     className="entry-menu-btn"
-                    onClick={() => setMenuOpenFor(menuOpenFor === group.key ? null : group.key)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(latest.id);
+                    }}
+                    title="Delete"
                   >
-                    &#8942;
+                    &#128465;
                   </button>
-                  {menuOpenFor === group.key && (
-                    <div className="entry-menu-dropdown">
-                      <div
-                        className="combobox-option"
-                        onClick={() => {
-                          setExpanded((prev) => new Set(prev).add(group.key));
-                          setEditingId(latest.id);
-                          setMenuOpenFor(null);
-                        }}
-                      >
-                        Edit
-                      </div>
-                      {group.entries.length === 1 && (
-                        <div className="combobox-option combobox-danger" onClick={() => handleDelete(latest.id)}>
-                          Delete
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </span>
+                ) : (
+                  <span />
+                )}
               </div>
 
               {isOpen && (
@@ -269,13 +252,7 @@ export function GroupedEntryList({
                       projects={projects}
                       activities={activities}
                       allTags={allTags}
-                      isEditing={editingId === entry.id}
-                      onStartEdit={() => setEditingId(entry.id)}
-                      onCancelEdit={() => setEditingId(null)}
-                      onSaved={() => {
-                        setEditingId(null);
-                        onChanged?.();
-                      }}
+                      onSaved={() => onChanged?.()}
                       onDelete={() => handleDelete(entry.id)}
                       onReplay={() => replay(entry)}
                     />
@@ -317,26 +294,17 @@ interface EntryDetailRowProps {
   projects: Project[];
   activities: Activity[];
   allTags: Tag[];
-  isEditing: boolean;
-  onStartEdit: () => void;
-  onCancelEdit: () => void;
   onSaved: () => void;
   onDelete: () => void;
   onReplay: () => void;
 }
 
-function EntryDetailRow({
-  entry,
-  projects,
-  activities,
-  allTags,
-  isEditing,
-  onStartEdit,
-  onCancelEdit,
-  onSaved,
-  onDelete,
-  onReplay,
-}: EntryDetailRowProps) {
+/** Every field here is always directly editable — no separate "Edit mode"
+ *  to enter first. Description and times are low-chrome inputs (invisible
+ *  border until hovered/focused, so they read as plain text at rest);
+ *  project/task and tags reuse their existing picker triggers. Each field
+ *  saves independently on change/blur. */
+function EntryDetailRow({ entry, projects, activities, allTags, onSaved, onDelete, onReplay }: EntryDetailRowProps) {
   const p = projects.find((pr) => pr.id === entry.project_id);
   const a = activities.find((ac) => ac.id === entry.activity_id);
 
@@ -347,79 +315,71 @@ function EntryDetailRow({
   const [tags, setTags] = useState<Tag[]>(entry.tags ?? []);
   const [startTime, setStartTime] = useState(timeInputValue(entry.start_at));
   const [endTime, setEndTime] = useState(entry.end_at ? timeInputValue(entry.end_at) : "");
-  const [saving, setSaving] = useState(false);
 
-  async function save() {
-    if (!selection || !endTime) return;
-    setSaving(true);
-    try {
-      await api.timeEntries.update(entry.id, {
-        project_id: selection.project.id,
-        activity_id: selection.activity.id,
-        description: description || undefined,
-        tags: tags.map((t) => t.name),
-        start_at: combineDateAndTime(entry.start_at, startTime),
-        end_at: combineDateAndTime(entry.end_at ?? entry.start_at, endTime),
-      });
-      onSaved();
-    } finally {
-      setSaving(false);
+  async function saveField(updates: Parameters<typeof api.timeEntries.update>[1]) {
+    await api.timeEntries.update(entry.id, updates);
+    onSaved();
+  }
+
+  function handleProjectTaskChange(sel: ProjectTaskSelection) {
+    setSelection(sel);
+    saveField({ project_id: sel.project.id, activity_id: sel.activity.id });
+  }
+
+  function handleDescriptionBlur() {
+    if (description !== (entry.description ?? "")) {
+      saveField({ description: description || undefined });
     }
   }
 
-  if (isEditing) {
-    return (
-      <div className="entry-row entry-row-detail entry-row-editing">
-        <div className="entry-edit-form">
-          <ProjectTaskPicker value={selection} onChange={setSelection} />
-          <input
-            type="text"
-            placeholder="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-          <TagPicker
-            allTags={allTags}
-            selected={tags}
-            onChange={setTags}
-            onCreate={async (name) => {
-              const tag = await api.tags.create(name);
-              return tag;
-            }}
-          />
-          <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-          <span className="dim">-</span>
-          <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-          <button className="primary" disabled={saving} onClick={save}>
-            Save
-          </button>
-          <button onClick={onCancelEdit}>Cancel</button>
-        </div>
-      </div>
-    );
+  function handleTagsChange(next: Tag[]) {
+    setTags(next);
+    saveField({ tags: next.map((t) => t.name) });
+  }
+
+  function handleStartBlur() {
+    if (startTime && startTime !== timeInputValue(entry.start_at)) {
+      saveField({ start_at: combineDateAndTime(entry.start_at, startTime) });
+    }
+  }
+
+  function handleEndBlur() {
+    if (endTime && endTime !== (entry.end_at ? timeInputValue(entry.end_at) : "")) {
+      saveField({ end_at: combineDateAndTime(entry.end_at ?? entry.start_at, endTime) });
+    }
   }
 
   return (
-    <div className="entry-row entry-row-detail">
+    <div className="entry-row entry-row-detail" onClick={(e) => e.stopPropagation()}>
       <span className="entry-count-spacer" />
-      <span className="dim">{entry.description || "—"}</span>
-      <span />
-      <span className="entry-tags-cell" />
-      <span className="entry-time-range mono dim">
-        {formatClock(entry.start_at)} - {entry.end_at ? formatClock(entry.end_at) : "running"}
+      <input
+        type="text"
+        className="inline-edit-field"
+        value={description}
+        placeholder="(no description)"
+        onChange={(e) => setDescription(e.target.value)}
+        onBlur={handleDescriptionBlur}
+        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+      />
+      <ProjectTaskPicker value={selection} onChange={handleProjectTaskChange} />
+      <TagPicker
+        allTags={allTags}
+        selected={tags}
+        onChange={handleTagsChange}
+        onCreate={async (name) => api.tags.create(name)}
+      />
+      <span className="entry-time-inline">
+        <input type="time" className="inline-edit-field" value={startTime} onChange={(e) => setStartTime(e.target.value)} onBlur={handleStartBlur} />
+        <span className="dim">-</span>
+        <input type="time" className="inline-edit-field" value={endTime} onChange={(e) => setEndTime(e.target.value)} onBlur={handleEndBlur} />
       </span>
       <span className="mono entry-total">{formatDuration(entry.duration_seconds)}</span>
       <button className="entry-play" onClick={onReplay} title="Start this again">
         &#9654;
       </button>
-      <span className="entry-menu-wrap">
-        <button className="entry-menu-btn" onClick={onStartEdit} title="Edit">
-          &#9998;
-        </button>
-        <button className="entry-menu-btn" onClick={onDelete} title="Delete">
-          &#128465;
-        </button>
-      </span>
+      <button className="entry-menu-btn" onClick={onDelete} title="Delete">
+        &#128465;
+      </button>
     </div>
   );
 }

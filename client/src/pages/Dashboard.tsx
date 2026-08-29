@@ -7,6 +7,44 @@ import { formatTotal } from "../utils/format";
 import { rangeForPreset, type RangePreset } from "../utils/range";
 import type { Activity, Project, TimeEntry } from "../api/types";
 
+interface DailyTooltipProps {
+  active?: boolean;
+  payload?: { dataKey: string; value: number; color: string }[];
+  label?: string;
+  projectById: Map<string, Project>;
+}
+
+/** Recharts renders one payload row per <Bar>, always — even for projects
+ *  that logged nothing that day. Filter those out so the tooltip only
+ *  shows what was actually worked on. */
+function DailyTooltip({ active, payload, label, projectById }: DailyTooltipProps) {
+  if (!active || !payload) return null;
+  const logged = payload.filter((p) => p.value > 0).sort((a, b) => b.value - a.value);
+  if (logged.length === 0) return null;
+
+  return (
+    <div
+      style={{
+        background: "var(--surface-raised)",
+        border: "1px solid var(--border-strong)",
+        borderRadius: 6,
+        fontSize: 12,
+        padding: "8px 10px",
+      }}
+    >
+      <div className="dim" style={{ marginBottom: 4 }}>
+        {label}
+      </div>
+      {logged.map((p) => (
+        <div key={p.dataKey} style={{ color: p.color, display: "flex", justifyContent: "space-between", gap: 16 }}>
+          <span>{projectById.get(p.dataKey)?.name ?? p.dataKey}</span>
+          <span className="mono">{p.value.toFixed(2)}h</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [rangeValue, setRangeValue] = useState<{
     preset: RangePreset;
@@ -93,7 +131,7 @@ export default function Dashboard() {
   }, [entries, projects, range.from, range.to]);
 
   return (
-    <div className="main" style={{ maxWidth: 1100 }}>
+    <div className="main">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <h1 className="page-title">Dashboard</h1>
         <RangePicker value={rangeValue} onChange={setRangeValue} />
@@ -147,10 +185,7 @@ export default function Dashboard() {
               tickFormatter={(v) => `${v}h`}
               width={32}
             />
-            <Tooltip
-              contentStyle={{ background: "var(--surface-raised)", border: "1px solid var(--border-strong)", borderRadius: 6, fontSize: 12 }}
-              formatter={(value: number, key: string) => [`${value.toFixed(2)}h`, projectById.get(key)?.name ?? key]}
-            />
+            <Tooltip content={<DailyTooltip projectById={projectById} />} />
             {projects.map((p) => (
               <Bar key={p.id} dataKey={p.id} stackId="day" fill={p.color ?? "#666"} radius={0} />
             ))}
