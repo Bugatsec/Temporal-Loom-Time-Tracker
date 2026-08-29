@@ -7,6 +7,7 @@ import ImportExport from "./pages/ImportExport";
 import Projects from "./pages/Projects";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import Tags from "./pages/Tags";
 import TimeEntries from "./pages/TimeEntries";
 import TimeTracker from "./pages/TimeTracker";
 
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/reports" element={<Reports />} />
           <Route path="/import-export" element={<ImportExport />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/tags" element={<Tags />} />
         </Routes>
       </div>
     </TimerProvider>
