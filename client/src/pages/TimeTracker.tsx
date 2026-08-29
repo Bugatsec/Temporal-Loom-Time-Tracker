@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { GoalsSummary } from "../components/GoalsSummary";
 import { GroupedEntryList } from "../components/GroupedEntryList";
 import { Timer } from "../components/Timer";
 import { useTimer } from "../context/TimerContext";
@@ -54,6 +55,8 @@ export default function TimeTracker() {
           {todayTotal ? formatTotal(todayTotal.total_seconds) : "—"}
         </div>
       </div>
+
+      <GoalsSummary entries={entries} projects={projects} />
 
       <GroupedEntryList
         entries={entries}
