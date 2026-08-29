@@ -26,6 +26,7 @@ export interface Tag {
   workspace_id: string;
   name: string;
   color: string | null;
+  parent_id: string | null;
 }
 
 export interface TimeEntry {
@@ -59,4 +60,13 @@ export interface ProjectBreakdownRow {
   project_name: string;
   total_seconds: number;
   entry_count: number;
+}
+
+export interface Goal {
+  id: string;
+  workspace_id: string;
+  project_id: string | null;
+  target_seconds: number;
+  created_at: string;
+  updated_at: string;
 }

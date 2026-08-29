@@ -1,4 +1,4 @@
-import type { Activity, Project, ProjectBreakdownRow, RangeTotal, Tag, TimeEntry } from "./types";
+import type { Activity, Goal, Project, ProjectBreakdownRow, RangeTotal, Tag, TimeEntry } from "./types";
 import type { ImportSummary } from "./importTypes";
 
 const BASE = "/api/v1";
@@ -19,9 +19,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   projects: {
     list: () => request<Project[]>("/projects"),
-    // Get-or-create by name — the server dedupes case-insensitively, so
-    // this is safe to call both for "create a brand new project" and for
-    // "select what might be an existing one" from a combobox.
     create: (name: string, color?: string) =>
       request<Project>("/projects", { method: "POST", body: JSON.stringify({ name, color }) }),
     update: (id: string, updates: Partial<Pick<Project, "name" | "color">>) =>
@@ -35,21 +32,29 @@ export const api = {
   },
   tags: {
     list: () => request<Tag[]>("/tags"),
-    create: (name: string, color?: string) =>
-      request<Tag>("/tags", { method: "POST", body: JSON.stringify({ name, color }) }),
-    update: (id: string, color: string) =>
-      request<Tag>(`/tags/${id}`, { method: "PATCH", body: JSON.stringify({ color }) }),
+    create: (name: string, color?: string, parent_id?: string | null) =>
+      request<Tag>("/tags", { method: "POST", body: JSON.stringify({ name, color, parent_id }) }),
+    update: (id: string, updates: Partial<Pick<Tag, "name" | "color" | "parent_id">>) =>
+      request<Tag>(`/tags/${id}`, { method: "PATCH", body: JSON.stringify(updates) }),
+    remove: (id: string) => request<void>(`/tags/${id}`, { method: "DELETE" }),
+  },
+  goals: {
+    get: () => request<{ overall: Goal | null; byProject: Goal[] }>("/goals"),
+    setOverall: (targetSeconds: number) =>
+      request<Goal>("/goals/overall", { method: "PUT", body: JSON.stringify({ target_seconds: targetSeconds }) }),
+    removeOverall: () => request<void>("/goals/overall", { method: "DELETE" }),
+    setProject: (projectId: string, targetSeconds: number) =>
+      request<Goal>(`/goals/project/${projectId}`, {
+        method: "PUT",
+        body: JSON.stringify({ target_seconds: targetSeconds }),
+      }),
+    removeProject: (projectId: string) => request<void>(`/goals/project/${projectId}`, { method: "DELETE" }),
   },
   timeEntries: {
     list: (params: Record<string, string> = {}) =>
       request<TimeEntry[]>(`/time-entries?${new URLSearchParams(params)}`),
     running: () => request<TimeEntry | null>("/time-entries/running"),
-    start: (input: {
-      project_id: string;
-      activity_id: string;
-      description?: string;
-      tags?: string[];
-    }) =>
+    start: (input: { project_id: string; activity_id: string; description?: string; tags?: string[] }) =>
       request<TimeEntry>("/time-entries/start", { method: "POST", body: JSON.stringify(input) }),
     stop: (id: string) => request<TimeEntry>(`/time-entries/${id}/stop`, { method: "POST" }),
     createManual: (input: {
@@ -65,17 +70,13 @@ export const api = {
     remove: (id: string) => request<void>(`/time-entries/${id}`, { method: "DELETE" }),
   },
   reports: {
-    summary: (from: string, to: string) =>
-      request<RangeTotal>(`/reports/summary?from=${from}&to=${to}`),
+    summary: (from: string, to: string) => request<RangeTotal>(`/reports/summary?from=${from}&to=${to}`),
     byProject: (from: string, to: string) =>
       request<ProjectBreakdownRow[]>(`/reports/by-project?from=${from}&to=${to}`),
   },
   imports: {
     clockify: (csv: string, timeZone: string) =>
-      request<ImportSummary>("/imports/clockify", {
-        method: "POST",
-        body: JSON.stringify({ csv, timeZone }),
-      }),
+      request<ImportSummary>("/imports/clockify", { method: "POST", body: JSON.stringify({ csv, timeZone }) }),
   },
   exportUrl: () => `${BASE}/exports/json`,
 };
