@@ -53,11 +53,19 @@ export function TagPicker({ allTags, selected, onChange, onCreate }: TagPickerPr
     <div className="tag-picker" ref={rootRef}>
       <button
         type="button"
-        className={"tag-picker-trigger" + (selected.length > 0 ? " active" : "")}
+        className="tag-picker-trigger"
         onClick={() => setOpen((o) => !o)}
         title="Tags"
       >
-        &#127991;
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24H4a1 1 0 0 0-1 1v5.59a2 2 0 0 0 .59 1.41l9.58 9.59a2 2 0 0 0 2.83 0l4.59-4.59a2 2 0 0 0 0-2.83Z"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+          <circle cx="7.5" cy="7.5" r="1.25" fill="currentColor" />
+        </svg>
         {selected.length > 0 && <span className="tag-picker-count">{selected.length}</span>}
       </button>
 
