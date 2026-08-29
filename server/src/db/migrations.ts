@@ -16,4 +16,7 @@ export function runMigrations(): void {
   if (!hasColumn("tags", "color")) {
     db.exec(`ALTER TABLE tags ADD COLUMN color TEXT`);
   }
+  if (!hasColumn("tags", "parent_id")) {
+    db.exec(`ALTER TABLE tags ADD COLUMN parent_id TEXT REFERENCES tags(id) ON DELETE SET NULL`);
+  }
 }
