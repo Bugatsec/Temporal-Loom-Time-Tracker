@@ -70,3 +70,22 @@ export interface Goal {
   created_at: string;
   updated_at: string;
 }
+
+export interface ActivityRollupRow {
+  activity_id: string;
+  activity_name: string;
+  project_id: string;
+  parent_id: string | null;
+  own_seconds: number;
+  rollup_seconds: number;
+  entry_count: number;
+  depth: number;
+}
+
+export interface SavedView {
+  id: string;
+  workspace_id: string;
+  name: string;
+  config: string;
+  created_at: string;
+}

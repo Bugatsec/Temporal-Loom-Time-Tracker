@@ -1,4 +1,4 @@
-import type { Activity, Goal, Project, ProjectBreakdownRow, RangeTotal, Tag, TimeEntry } from "./types";
+import type { Activity, ActivityRollupRow, Goal, Project, ProjectBreakdownRow, RangeTotal, SavedView, Tag, TimeEntry } from "./types";
 import type { ImportSummary } from "./importTypes";
 
 const BASE = "/api/v1";
@@ -73,6 +73,19 @@ export const api = {
     summary: (from: string, to: string) => request<RangeTotal>(`/reports/summary?from=${from}&to=${to}`),
     byProject: (from: string, to: string) =>
       request<ProjectBreakdownRow[]>(`/reports/by-project?from=${from}&to=${to}`),
+    byActivity: (from: string, to: string, projectId?: string) =>
+      request<ActivityRollupRow[]>(
+        `/reports/by-activity?from=${from}&to=${to}${projectId ? `&project_id=${projectId}` : ""}`
+      ),
+    exportCsvUrl: (from: string, to: string) => `${BASE}/reports/export.csv?from=${from}&to=${to}`,
+    exportHtmlUrl: (from: string, to: string) => `${BASE}/reports/export.html?from=${from}&to=${to}`,
+    exportPdfUrl: (from: string, to: string) => `${BASE}/reports/export.pdf?from=${from}&to=${to}`,
+  },
+  savedViews: {
+    list: () => request<SavedView[]>("/saved-views"),
+    create: (name: string, config: unknown) =>
+      request<SavedView>("/saved-views", { method: "POST", body: JSON.stringify({ name, config }) }),
+    remove: (id: string) => request<void>(`/saved-views/${id}`, { method: "DELETE" }),
   },
   imports: {
     clockify: (csv: string, timeZone: string) =>
