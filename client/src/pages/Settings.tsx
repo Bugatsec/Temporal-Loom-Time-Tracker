@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import { ColorDot } from "../components/ColorDot";
 import { formatDurationClock } from "../utils/date";
+import { getSidebarPrefs, setSidebarPrefs } from "../utils/sidebarPrefs";
+import type { ImportSummary } from "../api/importTypes";
 import type { Goal, Project } from "../api/types";
 
 function hmToSeconds(h: string, m: string): number {
@@ -27,6 +29,14 @@ export default function Settings() {
   const [newProjectId, setNewProjectId] = useState("");
   const [newH, setNewH] = useState("1");
   const [newM, setNewM] = useState("0");
+
+  const [sidebarPrefs, setLocalSidebarPrefs] = useState(getSidebarPrefs());
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importFileName, setImportFileName] = useState<string | null>(null);
 
   function refresh() {
     api.goals.get().then(({ overall, byProject }) => {
@@ -70,12 +80,36 @@ export default function Settings() {
     refresh();
   }
 
+  function toggleSidebarPref(key: "showTeam" | "showClients") {
+    const next = { ...sidebarPrefs, [key]: !sidebarPrefs[key] };
+    setLocalSidebarPrefs(next);
+    setSidebarPrefs(next);
+  }
+
+  async function handleImportFile(file: File) {
+    setImporting(true);
+    setImportError(null);
+    setImportSummary(null);
+    setImportFileName(file.name);
+    try {
+      const text = await file.text();
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const result = await api.imports.clockify(text, timeZone);
+      setImportSummary(result);
+    } catch (e: any) {
+      setImportError(e.message);
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   const projectsWithoutGoal = projects.filter((p) => !byProject.some((g) => g.project_id === p.id));
 
   return (
     <div className="main">
       <h1 className="page-title">Settings</h1>
-      <p className="page-subtitle">Daily targets — how much you want to log, overall and per project.</p>
+      <p className="page-subtitle">Daily targets, data import/export, and sidebar layout.</p>
 
       <div className="card">
         <div className="dim" style={{ marginBottom: 10 }}>
@@ -155,6 +189,98 @@ export default function Settings() {
             </button>
           </div>
         )}
+      </div>
+
+      <div className="card">
+        <div className="dim" style={{ marginBottom: 10 }}>
+          Sidebar
+        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, padding: "6px 0", cursor: "pointer" }}>
+          <input type="checkbox" checked={sidebarPrefs.showTeam} onChange={() => toggleSidebarPref("showTeam")} />
+          Show "Team" (placeholder — no multi-user support exists yet)
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, padding: "6px 0", cursor: "pointer" }}>
+          <input type="checkbox" checked={sidebarPrefs.showClients} onChange={() => toggleSidebarPref("showClients")} />
+          Show "Clients" (placeholder — not built yet)
+        </label>
+      </div>
+
+      <div className="card">
+        <div className="dim" style={{ marginBottom: 10 }}>
+          Import from Clockify
+        </div>
+        <p style={{ marginTop: 0, color: "var(--ink-dim)", fontSize: 13 }}>
+          Upload a Clockify CSV export. Projects, activities, and tags are matched by name (or
+          created if they don't exist yet). Re-uploading the same file is safe — entries already
+          imported are detected and skipped. Timestamps are converted using your browser's timezone.
+        </p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleImportFile(file);
+          }}
+        />
+        <button className="primary" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+          {importing ? "Importing..." : "Choose CSV file"}
+        </button>
+
+        {importError && <div style={{ color: "var(--danger)", marginTop: 12 }}>{importError}</div>}
+
+        {importSummary && (
+          <div style={{ marginTop: 16 }}>
+            <div className="dim" style={{ marginBottom: 8 }}>
+              Imported {importFileName}
+            </div>
+            <table>
+              <tbody>
+                <tr>
+                  <td>Rows read</td>
+                  <td className="mono">{importSummary.rows_read}</td>
+                </tr>
+                <tr>
+                  <td>Entries imported</td>
+                  <td className="mono">{importSummary.entries_imported}</td>
+                </tr>
+                <tr>
+                  <td>Skipped (already imported)</td>
+                  <td className="mono">{importSummary.entries_skipped_duplicate}</td>
+                </tr>
+                <tr>
+                  <td>Skipped (invalid row)</td>
+                  <td className="mono">{importSummary.rows_skipped_invalid}</td>
+                </tr>
+                <tr>
+                  <td>New projects created</td>
+                  <td className="mono">{importSummary.projects_created}</td>
+                </tr>
+                <tr>
+                  <td>New activities created</td>
+                  <td className="mono">{importSummary.activities_created}</td>
+                </tr>
+                <tr>
+                  <td>New tags created</td>
+                  <td className="mono">{importSummary.tags_created}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <div className="dim" style={{ marginBottom: 10 }}>
+          Export
+        </div>
+        <p style={{ marginTop: 0, color: "var(--ink-dim)", fontSize: 13 }}>
+          Downloads the full workspace — projects, activities, tags, and time entries — as versioned JSON.
+        </p>
+        <a href={api.exportUrl()}>
+          <button className="primary">Download JSON export</button>
+        </a>
       </div>
 
       <div className="card">
