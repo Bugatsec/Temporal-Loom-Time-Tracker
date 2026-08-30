@@ -30,10 +30,23 @@ function DailyTooltip({ active, payload, label, projectById }: DailyTooltipProps
         borderRadius: 6,
         fontSize: 12,
         padding: "8px 10px",
+        minWidth: 140,
       }}
     >
-      <div className="dim" style={{ marginBottom: 4 }}>
-        {label}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 16,
+          marginBottom: 6,
+          paddingBottom: 6,
+          borderBottom: "1px solid var(--border)",
+        }}
+      >
+        <span className="dim">{label}</span>
+        <span className="mono" style={{ fontWeight: 600 }}>
+          {logged.reduce((sum, p) => sum + p.value, 0).toFixed(2)}h
+        </span>
       </div>
       {logged.map((p) => (
         <div key={p.dataKey} style={{ color: p.color, display: "flex", justifyContent: "space-between", gap: 16 }}>
