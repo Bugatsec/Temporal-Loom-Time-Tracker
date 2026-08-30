@@ -9,6 +9,7 @@ import { goalsRouter } from "./routes/goals.js";
 import { importsRouter } from "./routes/imports.js";
 import { projectsRouter } from "./routes/projects.js";
 import { reportsRouter } from "./routes/reports.js";
+import { savedViewsRouter } from "./routes/savedViews.js";
 import { tagsRouter } from "./routes/tags.js";
 import { timeEntriesRouter } from "./routes/timeEntries.js";
 import { workspacesRouter } from "./routes/workspaces.js";
@@ -33,6 +34,7 @@ app.use("/api/v1/exports", exportRouter);
 app.use("/api/v1/tags", tagsRouter);
 app.use("/api/v1/imports", importsRouter);
 app.use("/api/v1/goals", goalsRouter);
+app.use("/api/v1/saved-views", savedViewsRouter);
 
 // Centralized error handler — keeps route handlers free of try/catch boilerplate
 // for anything that isn't a domain-specific 4xx already handled inline.

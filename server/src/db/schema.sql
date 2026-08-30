@@ -117,6 +117,17 @@ CREATE TABLE IF NOT EXISTS goals (
 );
 CREATE INDEX IF NOT EXISTS idx_goals_project ON goals(project_id);
 
+-- Stage 3: saved report views — a named, reusable range+filter combo.
+-- config is a small JSON blob ({preset, customFrom, customTo, projectId})
+-- rather than separate columns, since it's UI-shaped config, not queried on.
+CREATE TABLE IF NOT EXISTS saved_views (
+  id            TEXT PRIMARY KEY,
+  workspace_id  TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  name          TEXT NOT NULL,
+  config        TEXT NOT NULL,
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 -- Bootstrap: Stage 1 is single-user/single-workspace, but the row exists
 -- so multi-workspace (Section 20) is additive later, not a migration.
 INSERT INTO workspaces (id, name)
