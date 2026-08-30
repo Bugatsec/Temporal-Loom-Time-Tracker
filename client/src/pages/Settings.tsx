@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { ColorDot } from "../components/ColorDot";
 import { formatDurationClock } from "../utils/date";
 import { getSidebarPrefs, setSidebarPrefs } from "../utils/sidebarPrefs";
+import { getFeaturePrefs, setFeaturePrefs, type FeaturePrefs } from "../utils/featurePrefs";
 import type { ImportSummary } from "../api/importTypes";
 import type { Goal, Project } from "../api/types";
 
@@ -31,6 +32,7 @@ export default function Settings() {
   const [newM, setNewM] = useState("0");
 
   const [sidebarPrefs, setLocalSidebarPrefs] = useState(getSidebarPrefs());
+  const [featurePrefs, setLocalFeaturePrefs] = useState(getFeaturePrefs());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
@@ -84,6 +86,12 @@ export default function Settings() {
     const next = { ...sidebarPrefs, [key]: !sidebarPrefs[key] };
     setLocalSidebarPrefs(next);
     setSidebarPrefs(next);
+  }
+
+  function toggleFeaturePref(key: keyof FeaturePrefs) {
+    const next = { ...featurePrefs, [key]: !featurePrefs[key] };
+    setLocalFeaturePrefs(next);
+    setFeaturePrefs(next);
   }
 
   async function handleImportFile(file: File) {
@@ -189,6 +197,32 @@ export default function Settings() {
             </button>
           </div>
         )}
+      </div>
+
+      <div className="card">
+        <div className="dim" style={{ marginBottom: 10 }}>
+          Tracker features
+        </div>
+        <p style={{ marginTop: 0, marginBottom: 10, color: "var(--ink-dim)", fontSize: 13 }}>
+          Choose what kind of tracker this is — leave everything on for the full analytics suite,
+          or turn off what you don't want and keep it simple.
+        </p>
+        {(
+          [
+            ["charts", "Dashboard charts (stacked daily bar + donut breakdown)"],
+            ["rollups", "Hierarchical rollups (a parent task's total includes its sub-tasks)"],
+            ["drillDown", "Drill-down (click a report row to see its underlying entries)"],
+            ["savedViews", "Saved report views"],
+            ["exportCsv", "CSV report export"],
+            ["exportHtml", "HTML report export"],
+            ["exportPdf", "PDF report export"],
+          ] as [keyof FeaturePrefs, string][]
+        ).map(([key, label]) => (
+          <label key={key} style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, padding: "5px 0", cursor: "pointer" }}>
+            <input type="checkbox" checked={featurePrefs[key]} onChange={() => toggleFeaturePref(key)} />
+            {label}
+          </label>
+        ))}
       </div>
 
       <div className="card">
