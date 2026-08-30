@@ -15,88 +15,71 @@ cp server/.env.example server/.env
 npm run dev   # API on :4310, client on :5173, both on 0.0.0.0
 ```
 
-If you already have a `server/data/tracker.db` from before this update:
-tags now support a `parent_id` column and there's a new `goals` table.
-Both are added automatically on next boot (`src/db/migrations.ts` for the
-column, `schema.sql`'s `CREATE TABLE IF NOT EXISTS` for the new table) —
-no manual action needed, your existing data is untouched.
-
 ## What changed in this pass
 
-**Visual bugs fixed:**
-- A stale, duplicate `.entry-row` CSS block (left over from an earlier
-  revision) was silently overriding the grid layout with flexbox
-  `space-between`, which is what caused the tag/time/play/project columns
-  to drift out of alignment between rows. Deleted the dead block; the
-  entry-row grid now uses fixed-width columns everywhere so every row lines
-  up regardless of content (empty tags, no time range shown for merged
-  groups, etc). Text is left-aligned throughout.
-- The tag-picker button was a Unicode emoji glyph, which renders
-  inconsistently (that was the "glitched" look) — replaced with an inline
-  SVG icon, and it's now always the same accent yellow as the "+ Project"
-  button rather than only lighting up once tags are selected.
-- Dashboard's daily-bar tooltip listed every project (including ones
-  logging 0.00h that day) because Recharts renders one payload row per
-  `<Bar>` regardless of value. Replaced the default tooltip with a custom
-  one that filters to only projects actually logged that day.
+**Real visibility bugs fixed:**
+- Native `<input type="time/date/color">` controls (clock icon, calendar
+  icon, checkboxes) were rendering in light-mode colors by default on this
+  dark page — that's what made start/end times look "glitched" and barely
+  visible. Added `color-scheme: dark` at the root; fixes every native
+  control app-wide, not just the ones that were reported.
+- Time inputs were also genuinely too narrow (78px) to fit HH:MM plus the
+  browser's own clock icon without clipping — widened to 100px and gave
+  the row's time column more room (160px → 220px).
+- Tag-picker icon and the sidebar's expand chevron were both rendered at
+  10-14px, functionally invisible — both are proper sized SVGs now (18px
+  and 12px with a visible stroke width).
+- Play and delete buttons sized up slightly for an easier click target.
 
-**Layout:**
-- `.main`'s max-width went from 980px to 1440px — the app was leaving
-  roughly half a widescreen monitor empty. Extra width goes to breathing
-  room, not more content crammed in.
-- Sidebar: Dashboard is now an expandable parent; Calendar and Reports
-  live nested underneath it as a collapsible sub-list, auto-expanding
-  when you're on any of the three routes.
-- The Activities page is gone — task management lives entirely in the
-  Project+Task picker now.
+**Structure:**
+- Import/Export is no longer a separate page — folded into Settings.
+- Sidebar reverted to a flat layout (Time Tracker, Dashboard, then an
+  Analyze section with Calendar/Reports, then Manage) instead of nesting
+  Calendar/Reports under a collapsible Dashboard — matches Clockify's own
+  layout more directly.
+- Added "Team" and "Clients" as sidebar entries, **off by default**,
+  toggleable from Settings → Sidebar. Both are honest placeholders (no
+  backend) — this is a self-hosted single-user tool, so "Team" has nothing
+  real behind it, and "Clients" isn't built out. The toggle pattern itself
+  is the actual deliverable here; say the word if you want Clients turned
+  into a real feature (project → client grouping, matching Clockify).
 
-**Time Tracker — fully inline-editable entries:**
-Every field in an expanded entry row is directly editable now, no
-separate "Edit mode" to enter first — description and start/end time are
-low-chrome inputs (invisible border until you hover/click, so they read
-as plain text at rest, become an editable field the moment you touch
-them), project/task and tags use their existing picker buttons directly
-in the row. Each field saves independently on blur/change.
+**Tag picker now mirrors the Project/Task picker:**
+- Each top-level tag's row shows "N sub-tags" / "Add tag" + a chevron,
+  same as a project shows "N tasks" / "Add task" — expand to see or add
+  sub-tags inline.
+- Persistent "+ Create new tag" footer, matching "+ Create new project".
+- Typing in the search box still creates-on-enter as a shortcut.
 
-**Goals:**
-- Settings page: set an overall daily target (e.g. "6h") and optional
-  per-project targets (e.g. "Hunting: 4h").
-- Time Tracker page: a Goals card shows today's logged time against each
-  target with a progress bar — `2h30m / 4h00m` style, for both the
-  overall total and each project with a goal.
-- New `goals` table: one row for the overall goal (`project_id IS NULL`),
-  one row per project goal. Upserted, not duplicated, on repeated saves.
+**Dashboard tooltip:** now shows the day's total at the top (with a
+divider) above the per-project breakdown, not just the per-project list.
 
-**Tags now work like Projects:**
-- Full CRUD (create, rename, recolor — palette + custom color picker —
-  delete) via the new Tags page (Manage → Tags).
-- Tags can have sub-tags (`tags.parent_id`, same nesting pattern as
-  `activities.parent_id`) — add one inline from the Tags page.
-- Deleting a parent tag un-parents its children rather than deleting them.
+**Time Tracker layout:**
+- Today's total and the Goals card are one card now, not two: total time
+  on the left with room to breathe, a short vertical divider, goals on
+  the right.
+- Goals rendering has two modes: the existing spacious layout (still the
+  default) and a new **Compact** mode (smaller bars, percentage instead of
+  "Xh Ym / Ah Bm", tighter spacing) — toggle button in the card's top
+  right. Falls back to the old simple "Today" card when no goals are set.
 
-## Stage 3 status (unchanged from before, still accurate)
+## Everything from the previous pass (still true)
 
-Done: full date-range presets (Today/Yesterday/This week/Last
-week/This month/Last month/This year/Last year/All time/Custom) shared
-between Dashboard and Reports, with prev/next stepping; interactive
-stacked-bar + donut charts; project+task+description-level drill-down.
+Full range presets (Today/Yesterday/Week/Month/Year/All time/Custom)
+shared between Dashboard and Reports; interactive stacked-bar + donut
+charts; project+task+description-level entry grouping with inline
+editing (description and start/end time are always-editable, no separate
+edit mode); goals (overall + per-project daily targets); Clockify CSV
+import with browser-timezone-aware conversion.
 
-Deferred: hierarchical rollups (child activities/tags don't sum into a
-parent total anywhere yet), saved report views, CSV/HTML/PDF report
+## Stage 3 status (unchanged, still accurate)
+
+Deferred: hierarchical rollups, saved report views, CSV/HTML/PDF report
 export (only whole-workspace JSON export exists).
-
-## Import from Clockify
-
-Import/Export page, upload the CSV directly. Timestamps are converted
-using your browser's timezone (sent automatically), not the server's —
-this matters if your server's system timezone differs from your actual
-one. Re-uploading the same file is a safe no-op.
 
 ## What's deliberately stubbed
 
 - **Targets** — schema exists, no UI.
-- **Activity colors** — schema exists, no picker (projects and tags have one).
+- **Activity colors** — schema exists, no picker.
 - **Calendar** page is a single-day grouped list, not a real calendar grid.
-- Tag hierarchy is supported in the Tags management page and the data
-  model, but the Timer/entry TagPicker's checklist is still flat (doesn't
-  visually nest sub-tags under their parent yet).
+- **Team / Clients** — placeholder pages, hidden by default (see above).
