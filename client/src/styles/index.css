@@ -303,6 +303,10 @@ tr:last-child td {
   border-bottom: none;
 }
 
+tr.active {
+  background: var(--surface-raised);
+}
+
 .mono {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
