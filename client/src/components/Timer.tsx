@@ -66,8 +66,8 @@ export function Timer() {
             allTags={allTags}
             selected={selectedTags}
             onChange={setSelectedTags}
-            onCreate={async (name) => {
-              const tag = await api.tags.create(name);
+            onCreate={async (name, parentId) => {
+              const tag = await api.tags.create(name, undefined, parentId);
               setAllTags((prev) => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)));
               return tag;
             }}
