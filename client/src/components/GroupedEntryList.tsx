@@ -366,7 +366,7 @@ function EntryDetailRow({ entry, projects, activities, allTags, onSaved, onDelet
         allTags={allTags}
         selected={tags}
         onChange={handleTagsChange}
-        onCreate={async (name) => api.tags.create(name)}
+        onCreate={async (name, parentId) => api.tags.create(name, undefined, parentId)}
       />
       <span className="entry-time-inline">
         <input type="time" className="inline-edit-field" value={startTime} onChange={(e) => setStartTime(e.target.value)} onBlur={handleStartBlur} />
