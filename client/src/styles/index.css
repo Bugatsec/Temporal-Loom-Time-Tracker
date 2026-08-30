@@ -1,4 +1,8 @@
 :root {
+  color-scheme: dark; /* fixes native date/time/checkbox controls rendering
+    in light-mode colors — that's what made the time-picker clock icon
+    nearly invisible against the dark background. */
+
   /* Color: a dark logbook, not a terminal — warm off-white ink on deep
      slate, with a phosphor-amber accent for anything "live" (the running
      timer) rather than the default acid-green/vermilion pairing. */
@@ -130,14 +134,24 @@ a {
 .sidebar-expand {
   background: none;
   border: none;
-  color: var(--ink-faint);
-  padding: 8px 8px;
+  color: var(--ink-dim);
+  padding: 8px 10px;
   cursor: pointer;
-  font-size: 10px;
+  display: flex;
+  align-items: center;
 }
 
 .sidebar-expand:hover {
-  color: var(--ink-dim);
+  color: var(--ink);
+}
+
+.sidebar-chevron {
+  display: inline-flex;
+  transition: transform 0.15s ease;
+}
+
+.sidebar-chevron.open {
+  transform: rotate(180deg);
 }
 
 .sidebar-children {
@@ -694,7 +708,7 @@ tr:last-child td {
 
 .entry-row {
   display: grid;
-  grid-template-columns: 28px minmax(140px, 1fr) 150px 170px 160px 80px 32px 32px;
+  grid-template-columns: 28px minmax(140px, 1fr) 150px 170px 220px 80px 36px 36px;
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
@@ -763,8 +777,8 @@ tr:last-child td {
   background: none;
   border: none;
   color: var(--accent);
-  font-size: 12px;
-  padding: 4px;
+  font-size: 14px;
+  padding: 6px;
   cursor: pointer;
   justify-self: start;
 }
@@ -777,8 +791,8 @@ tr:last-child td {
   background: none;
   border: none;
   color: var(--ink-faint);
-  font-size: 13px;
-  padding: 4px 6px;
+  font-size: 16px;
+  padding: 6px 8px;
   cursor: pointer;
   justify-self: start;
 }
@@ -819,7 +833,7 @@ tr:last-child td {
 }
 
 input.inline-edit-field[type="time"] {
-  width: 78px;
+  width: 100px;
   flex-shrink: 0;
   font-family: var(--font-mono);
 }
@@ -855,4 +869,50 @@ input.inline-edit-field[type="time"] {
 .range-custom-inputs input[type="date"] {
   flex: 1;
   min-width: 110px;
+}
+
+/* ---- Merged Today + Goals card ---- */
+
+.today-goals-card {
+  display: flex;
+  align-items: stretch;
+  gap: 28px;
+}
+
+.today-goals-left {
+  flex: 0 0 auto;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.today-goals-divider {
+  width: 1px;
+  background: var(--border);
+  margin: 10px 0;
+  flex-shrink: 0;
+}
+
+.today-goals-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.compact-toggle {
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--ink-dim);
+  font-size: 11px;
+  padding: 4px 9px;
+  cursor: pointer;
+}
+
+.compact-toggle:hover {
+  color: var(--ink);
+  border-color: var(--accent-dim);
 }
