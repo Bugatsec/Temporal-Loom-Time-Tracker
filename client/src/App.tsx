@@ -2,12 +2,13 @@ import { Route, Routes } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { TimerProvider } from "./context/TimerContext";
 import Calendar from "./pages/Calendar";
+import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
-import ImportExport from "./pages/ImportExport";
 import Projects from "./pages/Projects";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Tags from "./pages/Tags";
+import Team from "./pages/Team";
 import TimeEntries from "./pages/TimeEntries";
 import TimeTracker from "./pages/TimeTracker";
 
@@ -26,9 +27,10 @@ export default function App() {
           <Route path="/projects" element={<Projects />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/reports" element={<Reports />} />
-          <Route path="/import-export" element={<ImportExport />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/tags" element={<Tags />} />
+          <Route path="/team" element={<Team />} />
+          <Route path="/clients" element={<Clients />} />
         </Routes>
       </div>
     </TimerProvider>
