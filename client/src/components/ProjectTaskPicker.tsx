@@ -31,6 +31,9 @@ export function ProjectTaskPicker({ value, onChange, onProjectsLoaded, disabled 
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const [taskDraft, setTaskDraft] = useState<{ projectId: string; text: string } | null>(null);
   const [newProjectDraft, setNewProjectDraft] = useState<string | null>(null);
+  const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null);
+  const [renamingTaskId, setRenamingTaskId] = useState<string | null>(null);
+  const [renameText, setRenameText] = useState("");
   const [busy, setBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -49,6 +52,8 @@ export function ProjectTaskPicker({ value, onChange, onProjectsLoaded, disabled 
         setExpandedProjectId(null);
         setTaskDraft(null);
         setNewProjectDraft(null);
+        setRenamingProjectId(null);
+        setRenamingTaskId(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -78,6 +83,8 @@ export function ProjectTaskPicker({ value, onChange, onProjectsLoaded, disabled 
     setTaskDraft(null);
     setNewProjectDraft(null);
     setSearch("");
+    setRenamingProjectId(null);
+    setRenamingTaskId(null);
   }
 
   async function selectProjectOnly(project: Project) {
@@ -135,6 +142,41 @@ export function ProjectTaskPicker({ value, onChange, onProjectsLoaded, disabled 
     }
   }
 
+  function startRenameProject(project: Project, e: React.MouseEvent) {
+    e.stopPropagation();
+    setRenamingProjectId(project.id);
+    setRenamingTaskId(null);
+    setRenameText(project.name);
+  }
+
+  async function submitRenameProject(project: Project) {
+    const name = renameText.trim();
+    setRenamingProjectId(null);
+    if (!name || name === project.name) return;
+    const updated = await api.projects.update(project.id, { name });
+    setProjects((prev) => prev.map((p) => (p.id === project.id ? updated : p)).sort((a, b) => a.name.localeCompare(b.name)));
+    if (value?.project.id === project.id) onChange({ ...value, project: updated });
+  }
+
+  function startRenameTask(activity: Activity, e: React.MouseEvent) {
+    e.stopPropagation();
+    setRenamingTaskId(activity.id);
+    setRenamingProjectId(null);
+    setRenameText(activity.name);
+  }
+
+  async function submitRenameTask(project: Project, activity: Activity) {
+    const name = renameText.trim();
+    setRenamingTaskId(null);
+    if (!name || name === activity.name) return;
+    const updated = await api.activities.update(activity.id, { name });
+    setActivitiesByProject((prev) => ({
+      ...prev,
+      [project.id]: (prev[project.id] ?? []).map((a) => (a.id === activity.id ? updated : a)),
+    }));
+    if (value?.activity.id === activity.id) onChange({ ...value, activity: updated });
+  }
+
   const filtered = projects.filter((p) => p.name.toLowerCase().includes(search.trim().toLowerCase()));
 
   const label = !value
@@ -172,10 +214,26 @@ export function ProjectTaskPicker({ value, onChange, onProjectsLoaded, disabled 
               return (
                 <div key={project.id} className="ptp-project-group">
                   <div className="ptp-project-row">
-                    <span className="ptp-project-name" onClick={() => selectProjectOnly(project)}>
-                      <ColorDot color={project.color} />
-                      {project.name}
-                    </span>
+                    {renamingProjectId === project.id ? (
+                      <input
+                        type="text"
+                        className="ptp-rename-input"
+                        autoFocus
+                        value={renameText}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setRenameText(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && submitRenameProject(project)}
+                        onBlur={() => submitRenameProject(project)}
+                      />
+                    ) : (
+                      <span className="ptp-project-name" onClick={() => selectProjectOnly(project)}>
+                        <ColorDot color={project.color} />
+                        {project.name}
+                        <button type="button" className="ptp-rename-btn" onClick={(e) => startRenameProject(project, e)} title="Rename project">
+                          &#9998;
+                        </button>
+                      </span>
+                    )}
                     <button
                       type="button"
                       className="ptp-expand"
@@ -188,15 +246,31 @@ export function ProjectTaskPicker({ value, onChange, onProjectsLoaded, disabled 
 
                   {isExpanded && (
                     <div className="ptp-tasks">
-                      {activities.map((activity) => (
-                        <div
-                          key={activity.id}
-                          className="combobox-option"
-                          onClick={() => selectProjectAndTask(project, activity)}
-                        >
-                          {activity.name}
-                        </div>
-                      ))}
+                      {activities.map((activity) =>
+                        renamingTaskId === activity.id ? (
+                          <div key={activity.id} className="ptp-task-draft">
+                            <input
+                              type="text"
+                              autoFocus
+                              value={renameText}
+                              onChange={(e) => setRenameText(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && submitRenameTask(project, activity)}
+                              onBlur={() => submitRenameTask(project, activity)}
+                            />
+                          </div>
+                        ) : (
+                          <div
+                            key={activity.id}
+                            className="combobox-option ptp-task-row"
+                            onClick={() => selectProjectAndTask(project, activity)}
+                          >
+                            <span>{activity.name}</span>
+                            <button type="button" className="ptp-rename-btn" onClick={(e) => startRenameTask(activity, e)} title="Rename task">
+                              &#9998;
+                            </button>
+                          </div>
+                        )
+                      )}
                       {taskDraft?.projectId === project.id ? (
                         <div className="ptp-task-draft">
                           <input

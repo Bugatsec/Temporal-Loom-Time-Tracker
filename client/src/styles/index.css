@@ -920,3 +920,39 @@ input.inline-edit-field[type="time"] {
   color: var(--ink);
   border-color: var(--accent-dim);
 }
+
+/* ---- Inline rename (projects/tasks in ProjectTaskPicker) ---- */
+
+.ptp-rename-btn {
+  background: none;
+  border: none;
+  color: var(--ink-faint);
+  font-size: 11px;
+  padding: 2px 4px;
+  margin-left: auto;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.ptp-project-name:hover .ptp-rename-btn,
+.ptp-task-row:hover .ptp-rename-btn {
+  opacity: 1;
+}
+
+.ptp-rename-btn:hover {
+  color: var(--accent);
+}
+
+.ptp-rename-input {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.ptp-task-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
