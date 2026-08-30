@@ -5,7 +5,7 @@ import { GroupedEntryList } from "../components/GroupedEntryList";
 import { Timer } from "../components/Timer";
 import { useTimer } from "../context/TimerContext";
 import { formatTotal } from "../utils/format";
-import type { Activity, Project, RangeTotal, TimeEntry } from "../api/types";
+import type { Activity, Goal, Project, RangeTotal, TimeEntry } from "../api/types";
 
 function todayRange(): { from: string; to: string } {
   const now = new Date();
@@ -21,6 +21,9 @@ export default function TimeTracker() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [todayTotal, setTodayTotal] = useState<RangeTotal | null>(null);
+  const [overallGoal, setOverallGoal] = useState<Goal | null>(null);
+  const [projectGoals, setProjectGoals] = useState<Goal[]>([]);
+  const [compactGoals, setCompactGoals] = useState(false);
 
   function refresh() {
     const { from, to } = todayRange();
@@ -30,6 +33,10 @@ export default function TimeTracker() {
     api.timeEntries.list({ from: twoWeeksAgo.toISOString(), limit: "1000" }).then(setEntries);
     api.projects.list().then(setProjects);
     api.reports.summary(from, to).then(setTodayTotal);
+    api.goals.get().then(({ overall, byProject }) => {
+      setOverallGoal(overall);
+      setProjectGoals(byProject);
+    });
   }
 
   useEffect(refresh, [version]);
@@ -40,6 +47,8 @@ export default function TimeTracker() {
     );
   }, [projects]);
 
+  const hasGoals = Boolean(overallGoal) || projectGoals.length > 0;
+
   return (
     <div className="main">
       <h1 className="page-title">Time Tracker</h1>
@@ -47,16 +56,43 @@ export default function TimeTracker() {
 
       <Timer />
 
-      <div className="card">
-        <div className="dim" style={{ marginBottom: 6 }}>
-          Today
+      {hasGoals ? (
+        <div className="card today-goals-card">
+          <div className="today-goals-left">
+            <div className="dim" style={{ marginBottom: 6 }}>
+              Today
+            </div>
+            <div className="mono" style={{ fontSize: 32 }}>
+              {todayTotal ? formatTotal(todayTotal.total_seconds) : "—"}
+            </div>
+          </div>
+          <div className="today-goals-divider" />
+          <div className="today-goals-right">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+              <span className="dim">Goals — today</span>
+              <button className="compact-toggle" onClick={() => setCompactGoals((c) => !c)}>
+                {compactGoals ? "Default" : "Compact"}
+              </button>
+            </div>
+            <GoalsSummary
+              entries={entries}
+              projects={projects}
+              overall={overallGoal}
+              byProject={projectGoals}
+              compact={compactGoals}
+            />
+          </div>
         </div>
-        <div className="mono" style={{ fontSize: 22 }}>
-          {todayTotal ? formatTotal(todayTotal.total_seconds) : "—"}
+      ) : (
+        <div className="card">
+          <div className="dim" style={{ marginBottom: 6 }}>
+            Today
+          </div>
+          <div className="mono" style={{ fontSize: 22 }}>
+            {todayTotal ? formatTotal(todayTotal.total_seconds) : "—"}
+          </div>
         </div>
-      </div>
-
-      <GoalsSummary entries={entries} projects={projects} />
+      )}
 
       <GroupedEntryList
         entries={entries}
