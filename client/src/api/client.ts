@@ -29,6 +29,8 @@ export const api = {
     list: (projectId: string) => request<Activity[]>(`/activities?project_id=${projectId}`),
     create: (project_id: string, name: string, parent_id?: string) =>
       request<Activity>("/activities", { method: "POST", body: JSON.stringify({ project_id, name, parent_id }) }),
+    update: (id: string, updates: Partial<Pick<Activity, "name" | "color" | "parent_id">>) =>
+      request<Activity>(`/activities/${id}`, { method: "PATCH", body: JSON.stringify(updates) }),
   },
   tags: {
     list: () => request<Tag[]>("/tags"),
