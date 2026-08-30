@@ -3,6 +3,7 @@ import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis
 import { api } from "../api/client";
 import { RangePicker } from "../components/RangePicker";
 import { localDateKey } from "../utils/date";
+import { getFeaturePrefs, onFeaturePrefsChanged } from "../utils/featurePrefs";
 import { formatTotal } from "../utils/format";
 import { rangeForPreset, type RangePreset } from "../utils/range";
 import type { Activity, Project, TimeEntry } from "../api/types";
@@ -59,6 +60,9 @@ function DailyTooltip({ active, payload, label, projectById }: DailyTooltipProps
 }
 
 export default function Dashboard() {
+  const [prefs, setPrefs] = useState(getFeaturePrefs());
+  useEffect(() => onFeaturePrefsChanged(() => setPrefs(getFeaturePrefs())), []);
+
   const [rangeValue, setRangeValue] = useState<{
     preset: RangePreset;
     anchor: Date;
@@ -183,88 +187,92 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="dim" style={{ marginBottom: 10 }}>
-          Daily breakdown
-        </div>
-        <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={dailyChartData}>
-            <XAxis dataKey="label" stroke="var(--ink-faint)" fontSize={11} tickLine={false} axisLine={false} />
-            <YAxis
-              stroke="var(--ink-faint)"
-              fontSize={11}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(v) => `${v}h`}
-              width={32}
-            />
-            <Tooltip content={<DailyTooltip projectById={projectById} />} />
-            {projects.map((p) => (
-              <Bar key={p.id} dataKey={p.id} stackId="day" fill={p.color ?? "#666"} radius={0} />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="card" style={{ marginTop: 16, display: "flex", gap: 32, alignItems: "center" }}>
-        <div style={{ position: "relative", width: 220, height: 220, flexShrink: 0 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={byProject}
-                dataKey="seconds"
-                nameKey="projectId"
-                innerRadius={62}
-                outerRadius={100}
-                paddingAngle={2}
-                stroke="none"
-              >
-                {byProject.map((row) => (
-                  <Cell key={row.projectId} fill={row.project?.color ?? "#666"} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontFamily: "var(--font-mono)",
-              fontSize: 15,
-              pointerEvents: "none",
-            }}
-          >
-            {formatTotal(totalSeconds)}
-          </div>
-        </div>
-        <div style={{ flex: 1 }}>
-          {byProject.length === 0 && <div className="empty-state">No entries in this range.</div>}
-          {byProject.map((row) => (
-            <div key={row.projectId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}>
-              <span style={{ color: row.project?.color ?? undefined, fontSize: 10 }}>●</span>
-              <span style={{ width: 120, fontSize: 13 }}>{row.project?.name ?? "—"}</span>
-              <div style={{ flex: 1, background: "var(--border)", borderRadius: 3, height: 6, overflow: "hidden" }}>
-                <div
-                  style={{
-                    width: `${totalSeconds ? (row.seconds / totalSeconds) * 100 : 0}%`,
-                    background: row.project?.color ?? "#666",
-                    height: "100%",
-                  }}
-                />
-              </div>
-              <span className="mono dim" style={{ fontSize: 12, width: 60, textAlign: "right" }}>
-                {formatTotal(row.seconds)}
-              </span>
-              <span className="mono dim" style={{ fontSize: 12, width: 44, textAlign: "right" }}>
-                {totalSeconds ? ((row.seconds / totalSeconds) * 100).toFixed(0) : 0}%
-              </span>
+      {prefs.charts && (
+        <>
+          <div className="card" style={{ marginTop: 16 }}>
+            <div className="dim" style={{ marginBottom: 10 }}>
+              Daily breakdown
             </div>
-          ))}
-        </div>
-      </div>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={dailyChartData}>
+                <XAxis dataKey="label" stroke="var(--ink-faint)" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis
+                  stroke="var(--ink-faint)"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => `${v}h`}
+                  width={32}
+                />
+                <Tooltip content={<DailyTooltip projectById={projectById} />} />
+                {projects.map((p) => (
+                  <Bar key={p.id} dataKey={p.id} stackId="day" fill={p.color ?? "#666"} radius={0} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="card" style={{ marginTop: 16, display: "flex", gap: 32, alignItems: "center" }}>
+            <div style={{ position: "relative", width: 220, height: 220, flexShrink: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={byProject}
+                    dataKey="seconds"
+                    nameKey="projectId"
+                    innerRadius={62}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    stroke="none"
+                  >
+                    {byProject.map((row) => (
+                      <Cell key={row.projectId} fill={row.project?.color ?? "#666"} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 15,
+                  pointerEvents: "none",
+                }}
+              >
+                {formatTotal(totalSeconds)}
+              </div>
+            </div>
+            <div style={{ flex: 1 }}>
+              {byProject.length === 0 && <div className="empty-state">No entries in this range.</div>}
+              {byProject.map((row) => (
+                <div key={row.projectId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}>
+                  <span style={{ color: row.project?.color ?? undefined, fontSize: 10 }}>●</span>
+                  <span style={{ width: 120, fontSize: 13 }}>{row.project?.name ?? "—"}</span>
+                  <div style={{ flex: 1, background: "var(--border)", borderRadius: 3, height: 6, overflow: "hidden" }}>
+                    <div
+                      style={{
+                        width: `${totalSeconds ? (row.seconds / totalSeconds) * 100 : 0}%`,
+                        background: row.project?.color ?? "#666",
+                        height: "100%",
+                      }}
+                    />
+                  </div>
+                  <span className="mono dim" style={{ fontSize: 12, width: 60, textAlign: "right" }}>
+                    {formatTotal(row.seconds)}
+                  </span>
+                  <span className="mono dim" style={{ fontSize: 12, width: 44, textAlign: "right" }}>
+                    {totalSeconds ? ((row.seconds / totalSeconds) * 100).toFixed(0) : 0}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
