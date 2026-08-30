@@ -2,6 +2,23 @@
 
 Local-first, self-hosted time tracker.
 
+## Rename anything
+
+Projects, tasks, tags, and sub-tags can all be renamed now:
+- **Projects**: Projects page — click the name to edit it inline.
+- **Tasks**: click the small pencil icon that appears next to a task name
+  in the Project+Task picker's expanded task list.
+- **Tags / sub-tags**: Tags page — click any tag or sub-tag's name (already
+  worked for tags; sub-tags use the exact same code path since they're just
+  tags with a `parent_id`, so this was never actually broken).
+
+Tasks had no rename capability at all before this — no backend `PATCH`
+endpoint even existed for activities, only create/archive. Added
+`updateActivity` (model), `PATCH /api/v1/activities/:id` (route), and the
+pencil-icon UI in `ProjectTaskPicker`. If the renamed project/task is the
+one currently selected in a picker, its trigger label updates immediately
+rather than showing the stale name until you reselect it.
+
 ## Stack
 
 - **Server:** Node.js + TypeScript + Express + SQLite (`better-sqlite3`) + pdfkit
