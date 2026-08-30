@@ -66,3 +66,19 @@ export function parseCsvRecords(text: string): Record<string, string>[] {
     return record;
   });
 }
+
+/** Minimal CSV writer — quotes any field containing a comma, quote, or
+ *  newline, doubling embedded quotes per RFC4180. Pairs with parseCsv
+ *  above for the export side of the same format. */
+export function toCsv(rows: (string | number)[][]): string {
+  return rows
+    .map((row) =>
+      row
+        .map((cell) => {
+          const str = String(cell);
+          return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+        })
+        .join(",")
+    )
+    .join("\n");
+}
