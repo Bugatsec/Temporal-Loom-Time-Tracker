@@ -8,6 +8,8 @@ export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [name, setName] = useState("");
   const [editingColorFor, setEditingColorFor] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameText, setRenameText] = useState("");
 
   function refresh() {
     api.projects.list().then(setProjects);
@@ -30,6 +32,14 @@ export default function Projects() {
   async function handleColorChange(id: string, color: string, closeAfter = true) {
     await api.projects.update(id, { color });
     if (closeAfter) setEditingColorFor(null);
+    refresh();
+  }
+
+  async function handleRename(id: string) {
+    const trimmed = renameText.trim();
+    setRenamingId(null);
+    if (!trimmed) return;
+    await api.projects.update(id, { name: trimmed });
     refresh();
   }
 
@@ -70,7 +80,28 @@ export default function Projects() {
                   <td>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                       <ColorDot color={p.color} />
-                      {p.name}
+                      {renamingId === p.id ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          value={renameText}
+                          onChange={(e) => setRenameText(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleRename(p.id)}
+                          onBlur={() => handleRename(p.id)}
+                          style={{ width: 160 }}
+                        />
+                      ) : (
+                        <span
+                          onClick={() => {
+                            setRenamingId(p.id);
+                            setRenameText(p.name);
+                          }}
+                          style={{ cursor: "pointer" }}
+                          title="Click to rename"
+                        >
+                          {p.name}
+                        </span>
+                      )}
                     </span>
                   </td>
                   <td>
