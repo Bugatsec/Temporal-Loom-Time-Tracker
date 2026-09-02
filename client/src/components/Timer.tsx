@@ -2,28 +2,44 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useTimer } from "../context/TimerContext";
 import { formatElapsed } from "../utils/format";
-import { ProjectTaskPicker, type ProjectTaskSelection } from "./ProjectTaskPicker";
-import { TagPicker } from "./TagPicker";
-import type { Project, Tag } from "../api/types";
+import { Combobox, type ComboboxOption } from "./Combobox";
+import { TagInput } from "./TagInput";
+import type { Activity, Project, Tag } from "../api/types";
+
+function toOption(item: { id: string; name: string; color: string | null }): ComboboxOption {
+  return { id: item.id, label: item.name, color: item.color };
+}
 
 export function Timer() {
   const { running, elapsedSeconds, start, stop, error } = useTimer();
 
-  const [selection, setSelection] = useState<ProjectTaskSelection | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
+
+  const [selectedProject, setSelectedProject] = useState<ComboboxOption | null>(null);
+  const [selectedActivity, setSelectedActivity] = useState<ComboboxOption | null>(null);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [description, setDescription] = useState("");
 
   useEffect(() => {
+    api.projects.list().then(setProjects);
     api.tags.list().then(setAllTags);
   }, []);
 
+  useEffect(() => {
+    if (!selectedProject) {
+      setActivities([]);
+      return;
+    }
+    api.activities.list(selectedProject.id).then(setActivities);
+  }, [selectedProject?.id]);
+
   async function handleStart() {
-    if (!selection) return;
+    if (!selectedProject || !selectedActivity) return;
     await start({
-      project_id: selection.project.id,
-      activity_id: selection.activity.id,
+      project_id: selectedProject.id,
+      activity_id: selectedActivity.id,
       description: description || undefined,
       tags: selectedTags.map((t) => t.name),
     }).catch(() => {});
@@ -33,6 +49,7 @@ export function Timer() {
     await stop().catch(() => {});
     setDescription("");
     setSelectedTags([]);
+    // Project/activity stay selected — most people track the same thing repeatedly.
   }
 
   const runningProject = running ? projects.find((p) => p.id === running.project_id) : undefined;
@@ -46,6 +63,7 @@ export function Timer() {
         </div>
         {running && (
           <div className="dim" style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+            {runningProject && <span style={{ color: runningProject.color ?? undefined }}>●</span>}
             {runningProject?.name ?? "—"}
             {running.description ? ` · ${running.description}` : ""}
           </div>
@@ -55,24 +73,55 @@ export function Timer() {
 
       {!running ? (
         <div className="timer-form">
-          <ProjectTaskPicker value={selection} onChange={setSelection} onProjectsLoaded={setProjects} />
+          <Combobox
+            options={projects.map(toOption)}
+            value={selectedProject}
+            placeholder="Project..."
+            onSelect={(opt) => {
+              setSelectedProject(opt);
+              setSelectedActivity(null);
+            }}
+            onCreate={async (name) => {
+              const project = await api.projects.create(name);
+              setProjects((prev) => [...prev, project].sort((a, b) => a.name.localeCompare(b.name)));
+              return toOption(project);
+            }}
+            onClear={() => {
+              setSelectedProject(null);
+              setSelectedActivity(null);
+            }}
+          />
+          <Combobox
+            options={activities.map(toOption)}
+            value={selectedActivity}
+            placeholder="Activity..."
+            disabled={!selectedProject}
+            onSelect={setSelectedActivity}
+            onCreate={async (name) => {
+              if (!selectedProject) throw new Error("Pick a project first");
+              const activity = await api.activities.create(selectedProject.id, name);
+              setActivities((prev) => [...prev, activity].sort((a, b) => a.name.localeCompare(b.name)));
+              return toOption(activity);
+            }}
+            onClear={() => setSelectedActivity(null)}
+          />
           <input
             type="text"
             placeholder="Description (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
-          <TagPicker
+          <TagInput
             allTags={allTags}
             selected={selectedTags}
             onChange={setSelectedTags}
-            onCreate={async (name, parentId) => {
-              const tag = await api.tags.create(name, undefined, parentId);
+            onCreate={async (name) => {
+              const tag = await api.tags.create(name);
               setAllTags((prev) => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)));
               return tag;
             }}
           />
-          <button className="primary" onClick={handleStart} disabled={!selection}>
+          <button className="primary" onClick={handleStart} disabled={!selectedProject || !selectedActivity}>
             Start
           </button>
         </div>
