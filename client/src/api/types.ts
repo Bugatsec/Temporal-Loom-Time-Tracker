@@ -26,7 +26,6 @@ export interface Tag {
   workspace_id: string;
   name: string;
   color: string | null;
-  parent_id: string | null;
 }
 
 export interface TimeEntry {
@@ -60,32 +59,4 @@ export interface ProjectBreakdownRow {
   project_name: string;
   total_seconds: number;
   entry_count: number;
-}
-
-export interface Goal {
-  id: string;
-  workspace_id: string;
-  project_id: string | null;
-  target_seconds: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ActivityRollupRow {
-  activity_id: string;
-  activity_name: string;
-  project_id: string;
-  parent_id: string | null;
-  own_seconds: number;
-  rollup_seconds: number;
-  entry_count: number;
-  depth: number;
-}
-
-export interface SavedView {
-  id: string;
-  workspace_id: string;
-  name: string;
-  config: string;
-  created_at: string;
 }
