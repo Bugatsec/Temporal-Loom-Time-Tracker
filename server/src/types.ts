@@ -62,5 +62,4 @@ export interface Tag {
   workspace_id: string;
   name: string;
   color: string | null;
-  parent_id: string | null;
 }
