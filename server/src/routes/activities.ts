@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { archiveActivity, getOrCreateActivity, listActivities, updateActivity } from "../models/activity.js";
+import { archiveActivity, getOrCreateActivity, listActivities } from "../models/activity.js";
 
 export const activitiesRouter = Router();
 
@@ -24,12 +24,4 @@ activitiesRouter.post("/", (req, res) => {
 activitiesRouter.post("/:id/archive", (req, res) => {
   archiveActivity(req.params.id);
   res.status(204).end();
-});
-
-// PATCH /api/v1/activities/:id — name, color, and/or parent_id
-activitiesRouter.patch("/:id", (req, res) => {
-  const { name, color, parent_id } = req.body ?? {};
-  const updated = updateActivity(req.params.id, { name, color, parent_id });
-  if (!updated) return res.status(404).json({ error: "Activity not found" });
-  res.json(updated);
 });

@@ -54,20 +54,3 @@ export function archiveActivity(activityId: string): void {
     `UPDATE activities SET archived_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`
   ).run(activityId);
 }
-
-export function updateActivity(
-  activityId: string,
-  updates: { name?: string; color?: string; parent_id?: string | null }
-): Activity | undefined {
-  const current = getActivity(activityId);
-  if (!current) return undefined;
-  db.prepare(
-    `UPDATE activities SET name = ?, color = ?, parent_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`
-  ).run(
-    updates.name ?? current.name,
-    updates.color ?? current.color,
-    updates.parent_id !== undefined ? updates.parent_id : current.parent_id,
-    activityId
-  );
-  return getActivity(activityId);
-}
