@@ -18,52 +18,12 @@ export interface ImportSummary {
 const FALLBACK_PROJECT_NAME = "Uncategorized";
 const FALLBACK_ACTIVITY_NAME = "General";
 
-/** Clockify exports "DD/MM/YYYY" + "HH:MM:SS" with no timezone attached.
- *  Converts that wall-clock time, interpreted in the given IANA timezone,
- *  into the correct UTC Date — using only built-in Intl (no dependency).
- *  This replaces an earlier version that assumed the *server's* OS
- *  timezone matched the export, which silently mis-dates entries near
- *  midnight whenever the two don't match (e.g. a server defaulting to UTC
- *  while the export is in IST). The caller now passes the *browser's*
- *  timezone instead, which is what actually matches the Clockify account. */
-function zonedWallClockToUtc(
-  year: number,
-  month: number,
-  day: number,
-  hour: number,
-  minute: number,
-  second: number,
-  timeZone: string
-): Date {
-  // Guess the UTC instant naively, then ask Intl what wall-clock time that
-  // instant displays as in the target zone. The difference between the
-  // guess and that displayed time is the zone's offset at this date
-  // (handles DST correctly, though not relevant for India).
-  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second);
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-  const parts = Object.fromEntries(dtf.formatToParts(new Date(utcGuess)).map((p) => [p.type, p.value]));
-  const displayedAsUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour === "24" ? "0" : parts.hour),
-    Number(parts.minute),
-    Number(parts.second)
-  );
-  const offsetMs = utcGuess - displayedAsUtc;
-  return new Date(utcGuess + offsetMs);
-}
-
-function parseClockifyDateTime(dateStr: string, timeStr: string, timeZone: string): Date | null {
+/** Clockify exports "DD/MM/YYYY" + "HH:MM:SS" with no timezone. Built via
+ *  the Date *component* constructor (not string parsing), so the values
+ *  are interpreted in this server's local timezone -- correct as long as
+ *  the server and the Clockify account are set to the same timezone,
+ *  which is the common case for a self-hosted single-user setup. */
+function parseClockifyDateTime(dateStr: string, timeStr: string): Date | null {
   const dateParts = dateStr.split("/");
   const timeParts = timeStr.split(":");
   if (dateParts.length !== 3 || timeParts.length !== 3) return null;
@@ -72,12 +32,8 @@ function parseClockifyDateTime(dateStr: string, timeStr: string, timeZone: strin
   const [hour, minute, second] = timeParts.map(Number);
   if ([day, month, year, hour, minute, second].some((n) => Number.isNaN(n))) return null;
 
-  try {
-    const date = zonedWallClockToUtc(year, month, day, hour, minute, second, timeZone);
-    return Number.isNaN(date.getTime()) ? null : date;
-  } catch {
-    return null; // invalid IANA zone name — caller falls back
-  }
+  const date = new Date(year, month - 1, day, hour, minute, second);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 /** Fast in-memory duplicate check for entries already tagged source='imported'
@@ -88,7 +44,7 @@ function buildExistingImportedKeys(): Set<string> {
   return new Set(existing.map((e) => `${e.project_id}|${e.activity_id}|${e.start_at}|${e.end_at}`));
 }
 
-export function importClockifyCsv(csvText: string, timeZone: string): ImportSummary {
+export function importClockifyCsv(csvText: string): ImportSummary {
   const records = parseCsvRecords(csvText);
   const summary: ImportSummary = {
     rows_read: records.length,
@@ -115,8 +71,8 @@ export function importClockifyCsv(csvText: string, timeZone: string): ImportSumm
     const endDate = record["End Date"];
     const endTime = record["End Time"];
 
-    const start = parseClockifyDateTime(startDate, startTime, timeZone);
-    const end = parseClockifyDateTime(endDate, endTime, timeZone);
+    const start = parseClockifyDateTime(startDate, startTime);
+    const end = parseClockifyDateTime(endDate, endTime);
 
     if (!start || !end) {
       summary.rows_skipped_invalid++;
