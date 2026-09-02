@@ -61,12 +61,8 @@ CREATE TABLE IF NOT EXISTS tags (
   workspace_id  TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
   name          TEXT NOT NULL,
   color         TEXT,
-  -- Self-referencing parent, same nesting pattern as activities.parent_id —
-  -- lets a tag have sub-tags (e.g. "Reading" under a "Learning" tag).
-  parent_id     TEXT REFERENCES tags(id) ON DELETE SET NULL,
   UNIQUE(workspace_id, name)
 );
-CREATE INDEX IF NOT EXISTS idx_tags_parent ON tags(parent_id);
 
 -- Time entries are the atomic source of truth (doc Section 8).
 CREATE TABLE IF NOT EXISTS time_entries (
@@ -100,32 +96,6 @@ CREATE TABLE IF NOT EXISTS time_entry_tags (
   time_entry_id TEXT NOT NULL REFERENCES time_entries(id) ON DELETE CASCADE,
   tag_id        TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
   PRIMARY KEY (time_entry_id, tag_id)
-);
-
--- Daily targets (goals). project_id NULL = the overall daily goal;
--- otherwise a per-project daily goal. One row per project, enforced in
--- application code rather than a partial unique index (SQLite treats
--- NULLs as distinct in UNIQUE constraints, so it can't express "at most
--- one NULL row" directly).
-CREATE TABLE IF NOT EXISTS goals (
-  id                TEXT PRIMARY KEY,
-  workspace_id      TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
-  project_id        TEXT REFERENCES projects(id) ON DELETE CASCADE,
-  target_seconds    INTEGER NOT NULL,
-  created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-);
-CREATE INDEX IF NOT EXISTS idx_goals_project ON goals(project_id);
-
--- Stage 3: saved report views — a named, reusable range+filter combo.
--- config is a small JSON blob ({preset, customFrom, customTo, projectId})
--- rather than separate columns, since it's UI-shaped config, not queried on.
-CREATE TABLE IF NOT EXISTS saved_views (
-  id            TEXT PRIMARY KEY,
-  workspace_id  TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
-  name          TEXT NOT NULL,
-  config        TEXT NOT NULL,
-  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 -- Bootstrap: Stage 1 is single-user/single-workspace, but the row exists

@@ -5,11 +5,9 @@ import { applySchema } from "./db/client.js";
 import { runMigrations } from "./db/migrations.js";
 import { activitiesRouter } from "./routes/activities.js";
 import { exportRouter } from "./routes/export.js";
-import { goalsRouter } from "./routes/goals.js";
 import { importsRouter } from "./routes/imports.js";
 import { projectsRouter } from "./routes/projects.js";
 import { reportsRouter } from "./routes/reports.js";
-import { savedViewsRouter } from "./routes/savedViews.js";
 import { tagsRouter } from "./routes/tags.js";
 import { timeEntriesRouter } from "./routes/timeEntries.js";
 import { workspacesRouter } from "./routes/workspaces.js";
@@ -33,8 +31,6 @@ app.use("/api/v1/reports", reportsRouter);
 app.use("/api/v1/exports", exportRouter);
 app.use("/api/v1/tags", tagsRouter);
 app.use("/api/v1/imports", importsRouter);
-app.use("/api/v1/goals", goalsRouter);
-app.use("/api/v1/saved-views", savedViewsRouter);
 
 // Centralized error handler — keeps route handlers free of try/catch boilerplate
 // for anything that isn't a domain-specific 4xx already handled inline.
@@ -47,5 +43,5 @@ const port = Number(process.env.PORT ?? 4310);
 const host = process.env.HOST ?? "127.0.0.1"; // localhost-only by default — doc section 17
 
 app.listen(port, host, () => {
-  console.log(`Temporal Loom server listening on http://${host}:${port}`);
+  console.log(`bug-bounty-life server listening on http://${host}:${port}`);
 });
