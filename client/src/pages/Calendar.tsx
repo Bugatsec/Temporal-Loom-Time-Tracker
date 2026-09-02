@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import { GroupedEntryList } from "../components/GroupedEntryList";
+import { EntryList } from "../components/EntryList";
 import type { Activity, Project, TimeEntry } from "../api/types";
 
 export default function Calendar() {
@@ -25,12 +25,6 @@ export default function Calendar() {
     api.timeEntries.list({ from, to, limit: "200" }).then(setEntries);
   }, [date]);
 
-  function refresh() {
-    const from = new Date(`${date}T00:00:00`).toISOString();
-    const to = new Date(`${date}T23:59:59`).toISOString();
-    api.timeEntries.list({ from, to, limit: "200" }).then(setEntries);
-  }
-
   return (
     <div className="main">
       <h1 className="page-title">Calendar</h1>
@@ -43,13 +37,9 @@ export default function Calendar() {
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
       </div>
 
-      <GroupedEntryList
-        entries={entries}
-        projects={projects}
-        activities={activities}
-        groupByDay={false}
-        onChanged={refresh}
-      />
+      <div className="card">
+        <EntryList entries={entries} projects={projects} activities={activities} />
+      </div>
     </div>
   );
 }
