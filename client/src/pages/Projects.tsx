@@ -8,6 +8,8 @@ export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [name, setName] = useState("");
   const [editingColorFor, setEditingColorFor] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameText, setRenameText] = useState("");
 
   function refresh() {
     api.projects.list().then(setProjects);
@@ -27,16 +29,24 @@ export default function Projects() {
     refresh();
   }
 
-  async function handleColorChange(id: string, color: string) {
+  async function handleColorChange(id: string, color: string, closeAfter = true) {
     await api.projects.update(id, { color });
-    setEditingColorFor(null);
+    if (closeAfter) setEditingColorFor(null);
+    refresh();
+  }
+
+  async function handleRename(id: string) {
+    const trimmed = renameText.trim();
+    setRenamingId(null);
+    if (!trimmed) return;
+    await api.projects.update(id, { name: trimmed });
     refresh();
   }
 
   return (
     <div className="main">
       <h1 className="page-title">Projects</h1>
-      <p className="page-subtitle">A meaningful body of work inside your workspace — e.g. "Bug Bounty".</p>
+      <p className="page-subtitle">A meaningful body of work inside your workspace — e.g. "Bug Bounty" or "Life".</p>
 
       <div className="card timer-form">
         <input
@@ -70,7 +80,28 @@ export default function Projects() {
                   <td>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                       <ColorDot color={p.color} />
-                      {p.name}
+                      {renamingId === p.id ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          value={renameText}
+                          onChange={(e) => setRenameText(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleRename(p.id)}
+                          onBlur={() => handleRename(p.id)}
+                          style={{ width: 160 }}
+                        />
+                      ) : (
+                        <span
+                          onClick={() => {
+                            setRenamingId(p.id);
+                            setRenameText(p.name);
+                          }}
+                          style={{ cursor: "pointer" }}
+                          title="Click to rename"
+                        >
+                          {p.name}
+                        </span>
+                      )}
                     </span>
                   </td>
                   <td>
@@ -85,6 +116,16 @@ export default function Projects() {
                             onClick={() => handleColorChange(p.id, c)}
                           />
                         ))}
+                        <input
+                          type="color"
+                          className="color-swatch-custom"
+                          value={p.color || "#888888"}
+                          onChange={(e) => handleColorChange(p.id, e.target.value, false)}
+                          title="Custom color"
+                        />
+                        <button type="button" onClick={() => setEditingColorFor(null)}>
+                          Done
+                        </button>
                       </div>
                     ) : (
                       <button onClick={() => setEditingColorFor(p.id)}>Change color</button>

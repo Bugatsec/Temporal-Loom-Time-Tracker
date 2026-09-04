@@ -1,14 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import { Combobox, type ComboboxOption } from "../components/Combobox";
-import { EntryList } from "../components/EntryList";
-import { TagInput } from "../components/TagInput";
+import { GroupedEntryList } from "../components/GroupedEntryList";
+import { ProjectTaskPicker, type ProjectTaskSelection } from "../components/ProjectTaskPicker";
+import { TagPicker } from "../components/TagPicker";
 import { useTimer } from "../context/TimerContext";
 import type { Activity, Project, Tag, TimeEntry } from "../api/types";
-
-function toOption(item: { id: string; name: string; color: string | null }): ComboboxOption {
-  return { id: item.id, label: item.name, color: item.color };
-}
 
 export default function TimeEntries() {
   const { version } = useTimer();
@@ -18,9 +14,7 @@ export default function TimeEntries() {
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [showForm, setShowForm] = useState(false);
 
-  const [formProject, setFormProject] = useState<ComboboxOption | null>(null);
-  const [formActivity, setFormActivity] = useState<ComboboxOption | null>(null);
-  const [formActivities, setFormActivities] = useState<Activity[]>([]);
+  const [selection, setSelection] = useState<ProjectTaskSelection | null>(null);
   const [formTags, setFormTags] = useState<Tag[]>([]);
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
@@ -28,7 +22,7 @@ export default function TimeEntries() {
   const [error, setError] = useState<string | null>(null);
 
   function refresh() {
-    api.timeEntries.list({ limit: "200" }).then(setEntries);
+    api.timeEntries.list({ limit: "500" }).then(setEntries);
     api.projects.list().then(setProjects);
     api.tags.list().then(setAllTags);
   }
@@ -41,17 +35,8 @@ export default function TimeEntries() {
     );
   }, [projects]);
 
-  useEffect(() => {
-    if (!formProject) {
-      setFormActivities([]);
-      return;
-    }
-    api.activities.list(formProject.id).then(setFormActivities);
-  }, [formProject?.id]);
-
   function resetForm() {
-    setFormProject(null);
-    setFormActivity(null);
+    setSelection(null);
     setFormTags([]);
     setStartAt("");
     setEndAt("");
@@ -59,14 +44,14 @@ export default function TimeEntries() {
   }
 
   async function handleCreate() {
-    if (!formProject || !formActivity || !startAt || !endAt) {
-      setError("Project, activity, start, and end are all required");
+    if (!selection || !startAt || !endAt) {
+      setError("Project, start, and end are all required");
       return;
     }
     try {
       await api.timeEntries.createManual({
-        project_id: formProject.id,
-        activity_id: formActivity.id,
+        project_id: selection.project.id,
+        activity_id: selection.activity.id,
         start_at: new Date(startAt).toISOString(),
         end_at: new Date(endAt).toISOString(),
         description: description || undefined,
@@ -79,11 +64,6 @@ export default function TimeEntries() {
     } catch (e: any) {
       setError(e.message);
     }
-  }
-
-  async function handleDelete(id: string) {
-    await api.timeEntries.remove(id);
-    refresh();
   }
 
   return (
@@ -101,38 +81,7 @@ export default function TimeEntries() {
 
         {showForm && (
           <div className="timer-form" style={{ marginTop: 14 }}>
-            <Combobox
-              options={projects.map(toOption)}
-              value={formProject}
-              placeholder="Project..."
-              onSelect={(opt) => {
-                setFormProject(opt);
-                setFormActivity(null);
-              }}
-              onCreate={async (name) => {
-                const project = await api.projects.create(name);
-                setProjects((prev) => [...prev, project].sort((a, b) => a.name.localeCompare(b.name)));
-                return toOption(project);
-              }}
-              onClear={() => {
-                setFormProject(null);
-                setFormActivity(null);
-              }}
-            />
-            <Combobox
-              options={formActivities.map(toOption)}
-              value={formActivity}
-              placeholder="Activity..."
-              disabled={!formProject}
-              onSelect={setFormActivity}
-              onCreate={async (name) => {
-                if (!formProject) throw new Error("Pick a project first");
-                const activity = await api.activities.create(formProject.id, name);
-                setFormActivities((prev) => [...prev, activity].sort((a, b) => a.name.localeCompare(b.name)));
-                return toOption(activity);
-              }}
-              onClear={() => setFormActivity(null)}
-            />
+            <ProjectTaskPicker value={selection} onChange={setSelection} />
             <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
             <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} />
             <input
@@ -141,12 +90,12 @@ export default function TimeEntries() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
-            <TagInput
+            <TagPicker
               allTags={allTags}
               selected={formTags}
               onChange={setFormTags}
-              onCreate={async (name) => {
-                const tag = await api.tags.create(name);
+              onCreate={async (name, parentId) => {
+                const tag = await api.tags.create(name, undefined, parentId);
                 setAllTags((prev) => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)));
                 return tag;
               }}
@@ -159,9 +108,7 @@ export default function TimeEntries() {
         {error && <div style={{ color: "var(--danger)", marginTop: 8 }}>{error}</div>}
       </div>
 
-      <div className="card">
-        <EntryList entries={entries} projects={projects} activities={activities} onDelete={handleDelete} />
-      </div>
+      <GroupedEntryList entries={entries} projects={projects} activities={activities} groupByWeek onChanged={refresh} />
     </div>
   );
 }
