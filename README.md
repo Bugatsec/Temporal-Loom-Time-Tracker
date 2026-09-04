@@ -1,109 +1,294 @@
-# Bug Bounty / Life — Stage 1
+# Temporal Loom
 
-Local-first, self-hosted time tracker. This is the **Stage 1: Clockify-compatible
-foundation** build described in the product doc — a working timer, projects,
-activities, time entries, basic reports, and JSON export. Stages 2–5 (Clockify
-import, full analytics engine, Life/Target hierarchy, and the customization
-system) are referenced in code comments where the schema already anticipates
-them, but are not implemented here.
+![Node](https://img.shields.io/badge/node-18%2B-brightgreen)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue)
+![React](https://img.shields.io/badge/React-18-61dafb)
+![Express](https://img.shields.io/badge/Express-4-black)
+![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-003b57)
+![License](https://img.shields.io/badge/license-personal--project-lightgrey)
+
+Temporal Loom is a local first, self hosted time tracker built as a Clockify compatible alternative you run yourself. It lives entirely on your own machine: no account, no cloud sync, no third party server ever sees your data. It is aimed at solo use, originally built for tracking bug bounty work and personal life projects side by side, but works for any kind of time tracking.
+
+This README documents every feature that exists in the app today, how to run it, and how to use each part of it.
+
+## Table of contents
+
+- Stack
+- Getting started
+- Running on your network
+- Data and privacy
+- Core concepts
+- Time Tracker
+- Grouped entries and inline editing
+- Projects and tasks
+- Tags and sub-tags
+- Goals
+- Dashboard
+- Reports
+- Saved views
+- Report export
+- Calendar
+- Settings
+- Tracker features toggle
+- Team and Clients placeholders
+- Importing from Clockify
+- Data export
+- API reference
+- Project structure
+- What is intentionally not built yet
 
 ## Stack
 
-- **Server:** Node.js + TypeScript + Express + SQLite (`better-sqlite3`)
-- **Client:** React + TypeScript + Vite + React Router
-- SQLite was chosen over Postgres for Stage 1 because the doc explicitly
-  allows it for single-user portable installs (§10), and it needs zero setup
-  for a self-hosted single-user deployment. The domain model doesn't change
-  if you move to Postgres later.
+Server: Node.js, TypeScript, Express, SQLite through better-sqlite3, pdfkit for PDF generation.
 
-## Project layout
+Client: React, TypeScript, Vite, React Router, Recharts for charts.
+
+The two run as separate processes from one repository using npm workspaces: `server` and `client`.
+
+## Getting started
+
+Requirements: Node.js 18 or newer, npm.
+
+```
+npm install
+cp server/.env.example server/.env
+npm run dev
+```
+
+This starts the API server on port 4310 and the Vite dev server on port 5173, both bound to 0.0.0.0. Open `http://localhost:5173`.
+
+To run only one side: `npm run dev:server` or `npm run dev:client`.
+
+To build for production: `npm run build`, which builds both workspaces.
+
+If you already have a `server/data/tracker.db` from before this pass: the `goals` table gained a `period` column, defaulting existing rows to `daily` automatically on next boot, and a new `daily_caps` table is created the same way. No manual action needed either way.
+
+## Running on your network
+
+Both the server and the client dev server bind to 0.0.0.0 by default, so any device on the same network can reach the app at your machine's local IP address, for example `http://192.168.1.20:5173`. This is controlled by `HOST=0.0.0.0` in `server/.env` and `host: true` in `client/vite.config.ts`. If you want the server reachable only from the same machine, set `HOST=127.0.0.1` in `server/.env` and remove `host: true` from the Vite config.
+
+There is no authentication built in. Anyone who can reach the address can read and write your data. This is fine on a trusted home network and not fine on an untrusted one.
+
+## Data and privacy
+
+All data lives in a single SQLite file at `server/data/tracker.db`. This file is gitignored and is never sent anywhere. There is no telemetry, no analytics, no external API calls except the ones you explicitly trigger, such as importing a Clockify CSV you provide yourself.
+
+## Core concepts
+
+The data model has five main entities.
+
+Project: a top level bucket of work, for example Bug Bounty or Life. Has a name and a color.
+
+Task, called an activity internally: a specific kind of work inside a project, for example Recon or Reporting. Tasks can have sub-tasks, since `activities.parent_id` lets one task nest under another. Every project always has a hidden fallback task called General that is used whenever you track time on a project without picking a specific task, so you never have to think about it.
+
+Tag: a label you can attach to any time entry, independent of project or task, for example Reading or CTF. Tags can have sub-tags the same way tasks can.
+
+Time entry: a single tracked interval, with a start time, an end time, an optional description, a project, a task, and any number of tags.
+
+Goal: an optional time target for one of four standing periods, Daily, Weekly, Monthly, or Yearly, either an overall target for the period or a target scoped to one project. Daily additionally has three fixed caps, minimum, max, and extreme, that apply regardless of any goal.
+
+## Time Tracker
+
+This is the home page and the default view when you open the app.
+
+At the top is the timer bar. Click the project and task picker, search or browse to a project, optionally expand it to pick or create a task, then optionally add a description and tags, then press Start. The timer begins immediately and the elapsed time updates every second. While a timer is running, the browser tab title also updates live, for example `34:22 - Temporal Loom`, so you can see elapsed time even when the tab is in the background. Press Stop to end the session.
+
+Below the timer is either a simple Today total, or, once you have set at least one goal in Settings, a merged card showing today's total on the left, a thin divider, and a Goals panel on the right with progress bars for the overall goal and any per project goals. The Goals panel has a Compact toggle in its corner that switches between the full label plus numbers layout and a smaller percentage only layout.
+
+Below that is the entry list for the last two weeks, organized into This week and Last week sections, each broken into day boxes. Each day box header shows the day name on the left and the day's total on the right. Weeks are Monday to Sunday.
+
+## Grouped entries and inline editing
+
+Within each day, entries are grouped by the combination of project, task, and description. If you tracked the same project, task, and description more than once in a day, they collapse into a single row with a count badge showing how many sessions, and the combined total for that group. A row with a different description, even under the same project, is always its own row.
+
+Click a group row to expand it and see every individual session inside it, each with its own start and end time.
+
+Every field on an expanded row is directly editable, with no separate edit mode to enter first.
+
+Description is a plain text field. Click it, type, and it saves when you click away or press Enter.
+
+Start time and end time are native time inputs. Click one, change it, and it saves on blur. The entry's duration and every total that depends on it recalculate immediately.
+
+Project and task use the same picker as the timer bar, so you can reassign an entry to a different project or task from the expanded row.
+
+Tags use the same tag picker as the timer bar.
+
+Each row, both the collapsed group and each expanded session, has a play button that starts a brand new timer with that exact project, task, description, and tags. If a timer is already running, it is stopped first. Each expanded session also has a delete button. A collapsed group with only one session also has a direct delete button next to its play button.
+
+## Projects and tasks
+
+Manage projects from the Projects page, reachable from the sidebar. Create a project by typing a name and pressing Create project. Click a project's name to rename it inline. Click Change color to pick from a preset palette or open a full custom color picker. Archive a project to hide it from pickers without deleting its history.
+
+Tasks do not have their own page. They are created and managed entirely from the project and task picker used throughout the app, in the timer bar, in manual entry creation, and in the expanded entry rows. Click a project row's task count, or Add task if it has none, to expand it and see its tasks. From there you can select an existing task, or type a name and press Enter to create a new one on the spot. Hover any task name to reveal a small pencil icon that lets you rename it in place.
+
+## Tags and sub-tags
+
+Manage tags from the Tags page. Create a top level tag by typing a name. Click a tag's name to rename it. Click Color to choose from the palette or a custom color. Click plus Sub-tag to add a child tag underneath it. Delete removes a tag; if it has children, they are not deleted, they simply lose their parent and become top level tags.
+
+The same tag picker is used everywhere you attach tags to a time entry, in the timer bar, in manual entry creation, and in expanded entry rows. It is a small tag icon button. Clicking it opens a search box and a checklist. Typing filters the list, and if nothing matches, an option appears to create a new tag on the spot. When not searching, each top level tag shows how many sub-tags it has, or an option to add one, with the same expand and create pattern as the project and task picker.
+
+## Goals
+
+Goals now come in four standing periods, each configured from Settings: Daily, Weekly, Monthly, and Yearly. Each always applies to whichever instance of that period is currently active, the same way a daily goal did before, rather than being tied to one specific week or month that stops mattering once it ends.
+
+Daily works differently from the other three. Instead of a single target, it is three standing lines that apply every day regardless of any other goal: a minimum, which is a floor you are expected to hit no matter what; a max, your normal ceiling; and an extreme, a hard ceiling that is only leaned on when a monthly goal's math genuinely requires it. These three are set once in Settings under Daily caps and are not tied to a specific project.
+
+Weekly and Yearly are simple "at least this much" floors. Set an overall target, optionally split across specific projects, and the app shows what has been logged against it so far. There is no derived daily schedule behind these two, just a running total against a target.
+
+Monthly is the one period with a full schedule behind it. Set an overall monthly target and, optionally, allocate parts of it to specific projects, for example 180 hours total for the month, with 100 of those hours earmarked for Hunting, 40 for Learning, and 20 for Work, leaving the remaining 20 unallocated. Once a project's own allocation is fully logged, it stops counting toward what is still needed. Every day, the app recomputes how much is left and how many days remain, and divides one by the other to get that day's actual required number. Miss a day entirely and nothing special has to happen. The shortfall is still there tomorrow, now divided across one fewer day, so the required number rises on its own. The app also checks whether the remaining target is realistic against the daily max and extreme caps: comfortable if it fits under the normal max on every remaining day, tight if it only fits by leaning on the extreme cap some days, or not achievable as set if it does not fit even at the extreme cap every remaining day, in which case the app shows the best achievable number instead of an unreachable one and tells you the shortfall so you know the goal itself needs revising, not just your discipline. It also shows, live, how many full rest days you could still take while keeping every day you do work under the normal max.
+
+All four periods are upserted, meaning saving a goal for a period again updates that same target rather than creating a duplicate.
+
+The Time Tracker page shows a Daily, Weekly, Monthly, Yearly toggle above a single goals card once any goal or daily cap is set; click a tab to see that period's progress. Each of the four tabs can be hidden from Settings under Goal tabs shown in Time Tracker, independently of whether a goal is actually set for it. The card has a Compact toggle that switches between the full label-plus-numbers layout and a smaller percentage-only layout.
+
+## Dashboard
+
+Reachable from the sidebar, separate from Time Tracker. This is the analytics view, not where you track time.
+
+A range picker at the top lets you choose Today, Yesterday, This week, Last week, This month, Last month, This year, Last year, All time, or a custom date range, with previous and next arrows to step through periods where that makes sense.
+
+Three stat cards show total time for the range, the top project by time, and the most logged task by name.
+
+A stacked daily bar chart shows one bar per day in the range, with each bar segmented and colored by project. Hovering a day shows a tooltip listing the day's total at the top, followed only by the projects actually logged that day; projects with nothing logged that day are not shown.
+
+A donut chart plus a legend list shows the overall breakdown by project for the whole range, each row showing the project's color, name, a proportional bar, the total time, and the percentage of the range total.
+
+## Reports
+
+Reachable from the sidebar. Uses the same range picker as the Dashboard.
+
+A total card shows the summed time and entry count for the selected range.
+
+A By project table lists every project with time in the range, its entry count, and its total. If drill down is enabled, clicking a row expands the exact underlying time entries for that project and range directly beneath the table, grouped the same way as the Time Tracker.
+
+A By activity table, when hierarchical rollups are enabled, lists every task that has time logged, indented by nesting depth, where a parent task's total includes every descendant's time added together, not just its own. For example if you logged 30 minutes directly on Recon and 45 minutes on its sub-task Subdomains, Recon's row shows 75 minutes and Subdomains still shows its own 45 minutes.
+
+## Saved views
+
+On the Reports page, when enabled, you can save the currently selected range under a name by clicking plus Save this view, typing a name, and confirming. Saved views appear as buttons; click one to instantly re-apply that range. Click the small x next to a saved view to delete it. Saved views are stored on the server, not per browser, so they are available from any device that reaches your instance.
+
+## Report export
+
+On the Reports page, when enabled, three buttons next to the range picker let you download the current report as CSV, open it as a standalone HTML page, or download it as a PDF. All three cover the total, the per project breakdown, and the per activity rollup for whatever range is currently selected. The PDF is a real PDF file generated on the server, not a browser print trick.
+
+## Calendar
+
+Reachable from the sidebar. Pick a single date and see every entry tracked that day, grouped by project, task, and description the same way as everywhere else, without the day box header since the date picker above already establishes which day you are looking at.
+
+## Settings
+
+Reachable from the sidebar. Contains:
+
+Overall daily goal and per project daily goals, described above under Goals.
+
+Tracker features, described below.
+
+Sidebar visibility toggles for Team and Clients, described below.
+
+Import from Clockify, described below.
+
+Export, a link to download the entire workspace as one JSON file.
+
+A note showing the server address.
+
+## Tracker features toggle
+
+In Settings under Tracker features, each of the following can be turned on or off independently, all on by default:
+
+Dashboard charts, meaning the stacked daily bar chart and the donut breakdown.
+
+Hierarchical rollups, meaning the By activity table on Reports and whether parent task totals include their descendants.
+
+Drill down, meaning whether clicking a project row on Reports expands its underlying entries.
+
+Saved report views.
+
+CSV report export.
+
+HTML report export.
+
+PDF report export.
+
+Turn everything off for a minimal tracker that only shows totals, or leave everything on for the full analytics suite. These preferences are stored in your browser's local storage, since they are a display preference and not tracked data, so they are per browser rather than synced across devices.
+
+## Team and Clients placeholders
+
+The sidebar can optionally show Team and Clients entries, toggled from Settings under Sidebar, both off by default. Both are honest placeholder pages with no functionality behind them yet. Temporal Loom has no multi-user support at all, so Team has nothing real to show. Clients, meaning grouping projects under a billing client the way Clockify does, has not been built. They exist in the sidebar only for layout parity with Clockify and as a starting point if either is ever built out for real.
+
+## Importing from Clockify
+
+From Settings, under Import from Clockify, choose a CSV file exported from Clockify. Projects, tasks, and tags in the file are matched to existing ones by name, or created if they do not exist. Since Clockify's Task field is commonly unused, imported entries are filed under each project's General fallback task, with the original description and tags preserved exactly.
+
+Timestamps in the file have no timezone attached. The import converts them using your browser's timezone, sent automatically with the upload, not the server's own system timezone, which matters if the two differ, for example if the server defaults to UTC.
+
+Re-uploading the same file is safe. Entries already imported, matched by project, task, start time, and end time, are detected and skipped rather than duplicated. The import summary reports rows read, entries imported, entries skipped as duplicates, invalid rows skipped, and how many new projects, tasks, and tags were created.
+
+## Data export and backup
+
+From Settings, three separate export and import paths exist, each for a different purpose.
+
+Export to Clockify downloads every time entry as a CSV in the exact column layout Clockify's own import accepts, the reverse of the Clockify importer above. Useful for moving away from Temporal Loom, not into it. A task that is only the internal General fallback is written out as a blank Task rather than leaking that implementation detail into the file; Client, User, Group, and Email are left blank since none of that is tracked here.
+
+Temporal Loom backup covers everything: projects, tasks, tags, time entries, goals, daily caps, and saved views, as one versioned JSON file. Export downloads it; Import restores from it. Restoring matches projects, tasks, and tags by name, creating them if they do not already exist, rather than reusing the exported ids directly, since those could collide with or duplicate anything already in the database. Time entries are deduped by project, task, description, start, and end, so restoring the same backup twice is safe and imports nothing the second time. Goals, caps, and saved views are upserted. This is the file to use for moving to a new install or recovering from a lost database.
+
+App settings is a smaller export covering configuration only, not tracked data: daily caps, all four goal periods with project goals matched by name rather than id so the file is portable to a different database, saved views, and this browser's own display preferences, meaning tracker feature toggles, sidebar visibility, and which goal tabs show in Time Tracker. Useful for carrying your setup to a new browser or a fresh install without re-entering every target and cap by hand. A project goal whose named project does not exist in the target database is skipped and reported rather than silently dropped or used to invent a new project.
+
+The original whole-workspace export, from before goals and daily caps existed, is schema version 1 and still imports correctly; the current version is schema version 2.
+
+## API reference
+
+All endpoints are under `/api/v1`.
+
+Workspaces: `GET /workspaces`, `GET /workspaces/current`.
+
+Projects: `GET /projects`, `GET /projects/:id`, `POST /projects`, `PATCH /projects/:id`, `POST /projects/:id/archive`.
+
+Activities, meaning tasks: `GET /activities`, `POST /activities`, `PATCH /activities/:id`, `POST /activities/:id/archive`.
+
+Tags: `GET /tags`, `POST /tags`, `PATCH /tags/:id`, `DELETE /tags/:id`.
+
+Time entries: `GET /time-entries`, `GET /time-entries/running`, `POST /time-entries/start`, `POST /time-entries/:id/stop`, `POST /time-entries`, `PATCH /time-entries/:id`, `DELETE /time-entries/:id`.
+
+Reports: `GET /reports/summary`, `GET /reports/by-project`, `GET /reports/by-activity`, `GET /reports/export.csv`, `GET /reports/export.html`, `GET /reports/export.pdf`.
+
+Goals: `GET /goals/status`, `GET /goals/caps`, `PUT /goals/caps`, `GET /goals/:period`, `PUT /goals/:period/overall`, `DELETE /goals/:period/overall`, `PUT /goals/:period/project/:projectId`, `DELETE /goals/:period/project/:projectId`, where `:period` is one of daily, weekly, monthly, yearly.
+
+Saved views: `GET /saved-views`, `POST /saved-views`, `DELETE /saved-views/:id`.
+
+Imports: `POST /imports/clockify`, `POST /imports/temporal-loom`, `POST /imports/settings`.
+
+Exports: `GET /exports/json`, `GET /exports/clockify.csv`, `GET /exports/settings.json`.
+
+## Project structure
 
 ```
 server/
-  src/db/          schema.sql, ULID generator, sqlite client, migration script
-  src/models/       data access: workspace, project, activity, timeEntry
-  src/services/      reportService (totals/breakdown), exportService (JSON export)
-  src/routes/       REST endpoints, mounted under /api/v1
-  src/index.ts       app entry point (binds to 127.0.0.1 by default)
+  src/db/          schema.sql, ULID generator, sqlite client, migrations
+  src/models/       workspace, project, activity, tag, goal, dailyCaps, savedView, timeEntry
+  src/services/      reportService, reportExportService, exportService, settingsExportService,
+                      clockifyExportService, csv, importClockify, goalStatusService
+  src/utils/          timezone (shared zoned-time conversion, forward and reverse, used by the
+                      importer, the Clockify exporter, and the goal engine)
+  src/routes/       one file per resource, mounted under /api/v1
+  src/index.ts       app entry point
 client/
-  src/api/          typed fetch client + shared types
-  src/components/    Sidebar, Timer (live-ticking start/stop), EntryList
-  src/pages/          Dashboard, TimeEntries, Projects, Activities, Calendar,
-                       Reports, Settings, ImportExport — the 8 Stage 1 screens
+  src/api/          typed fetch client and shared types
+  src/context/       TimerContext, global running timer state and live tab title
+  src/components/    Sidebar, Timer, ProjectTaskPicker, TagPicker, Combobox,
+                      GroupedEntryList, GoalsSummary, RangePicker, ColorDot
+  src/pages/          TimeTracker, Dashboard, Reports, Calendar, Projects, Tags,
+                       Settings, TimeEntries, Team, Clients
+  src/utils/          date, range, format, colors, featurePrefs, sidebarPrefs, goalPeriodPrefs
 ```
 
-## Running it
+## What is intentionally not built yet
 
-```bash
-npm install                # from the repo root — installs both workspaces
-cp server/.env.example server/.env
-npm run dev                # starts the API on :4310 and the client on :5173
-```
+Targets, meaning a layer between project and task for tracking a specific bug bounty target such as a company or domain, exist as a database table but have no user interface.
 
-Open http://localhost:5173. The Vite dev server proxies `/api` to the Express
-server, so you don't need CORS config for local dev.
+Activity colors, meaning giving individual tasks their own color the way projects and tags have, exist as a database column but have no picker.
 
-To run just one side: `npm run dev:server` or `npm run dev:client`.
+The Calendar page is a single day list, not a real month or week grid view.
 
-## What's implemented (Stage 1 acceptance criteria)
+Team and Clients are placeholders as described above.
 
-- Create a project and activity — inline, from combobox fields on the timer bar
-  or the manual-entry form. No separate "create project" page required; typing
-  a name that doesn't exist yet creates it, typing one that does just selects it
-  (case-insensitive).
-- Start/stop a timer; only one timer can run at a time (409 on conflict)
-- **Live browser tab title** while a timer runs — e.g. `34:22 - Bug Bounty / Life`
-  (no leading `00:` hour), ticking every second regardless of which page inside
-  the app is open, as long as the tab itself is open (`TimerContext`, mounted
-  above the router)
-- **Projects have colors** — auto-assigned from a palette on creation, changeable
-  from the Projects page; a colored dot renders next to the project name
-  everywhere it appears (comboboxes, entry list, Projects page)
-- **Tags with colors** — same type-to-create combobox pattern, rendered as
-  colored pills on entries
-- Manual time entry creation and editing
-- Soft delete (entries are recoverable, never hard-deleted from the UI)
-- Daily/weekly/monthly totals and a per-project breakdown
-- Full-workspace JSON export, versioned (`schema_version`)
-- **Clockify CSV import** (Import/Export page) — upload the export file directly;
-  projects/tags are matched by name or created; since Clockify's "Task" field
-  wasn't used in the sample export, imported entries land under a per-project
-  "General" activity, with the real description and tags preserved. Re-uploading
-  the same file is a safe no-op — already-imported entries are detected by
-  project+activity+start+end and skipped.
-
-All of the above was smoke-tested end-to-end against the running server,
-including a real import of a full year's Clockify export (1240 rows → 1238
-entries, 2 correctly-flagged duplicates, idempotent on re-import).
-
-**One caveat on the importer:** Clockify's CSV has no timezone info — just
-`DD/MM/YYYY` + `HH:MM:SS`. The importer converts these using the *server's*
-local timezone (via JS `Date` component construction, not string parsing), so
-imported timestamps will be correct only if the machine running this server is
-set to the same timezone your Clockify account used. Worth checking
-`timedatectl` before importing for real.
-
-## What's deliberately stubbed
-
-- **Targets** exist in the schema (`target_id` is part of the minimum
-  time-entry fields per doc §3.2) but there's no UI for them yet — Stage 1
-  doesn't require them.
-- **Calendar** page shows a day's entries in a list, not a real calendar grid.
-- **Settings/customization** page is a placeholder — that's Stage 5 scope.
-- **Child activities** (`parent_id`) are supported in the schema for the
-  Recon → Subdomains/Port scanning/Technology nesting shown in the doc, but
-  there's no UI to create a nested activity yet — `api.activities.create`
-  already accepts a `parent_id` if you want to wire it up.
-- **Activity colors** — the column exists (same as projects) but there's no
-  picker for it yet; only projects and tags have a color UI right now.
-
-## Database
-
-Schema lives in `server/src/db/schema.sql` and is applied automatically on
-server start (or manually via `npm run db:migrate`). The SQLite file is
-written to `server/data/tracker.db` and is gitignored — it's your data, not
-a build artifact.
-
-If you already have a `data/tracker.db` from before tags existed, it's fine —
-`server/src/db/migrations.ts` runs an additive `ALTER TABLE` on boot to add
-the new column, so nothing needs to be deleted or recreated.
+Saved views apply to the Reports page only, not to the Dashboard's range picker.
