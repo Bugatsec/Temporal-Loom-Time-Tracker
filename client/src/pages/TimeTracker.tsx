@@ -5,7 +5,7 @@ import { GroupedEntryList } from "../components/GroupedEntryList";
 import { Timer } from "../components/Timer";
 import { useTimer } from "../context/TimerContext";
 import { formatTotal } from "../utils/format";
-import type { Activity, Goal, Project, RangeTotal, TimeEntry } from "../api/types";
+import type { Activity, GoalStatusBundle, Project, RangeTotal, TimeEntry } from "../api/types";
 
 function todayRange(): { from: string; to: string } {
   const now = new Date();
@@ -15,14 +15,27 @@ function todayRange(): { from: string; to: string } {
   return { from: start.toISOString(), to: end.toISOString() };
 }
 
+function hasAnyGoal(status: GoalStatusBundle | null): boolean {
+  if (!status) return false;
+  return (
+    status.daily.minimum_seconds != null ||
+    status.daily.max_seconds != null ||
+    status.weekly.has_goal ||
+    status.weekly.projects.length > 0 ||
+    status.monthly.has_goal ||
+    status.monthly.projects.length > 0 ||
+    status.yearly.has_goal ||
+    status.yearly.projects.length > 0
+  );
+}
+
 export default function TimeTracker() {
   const { version } = useTimer();
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [todayTotal, setTodayTotal] = useState<RangeTotal | null>(null);
-  const [overallGoal, setOverallGoal] = useState<Goal | null>(null);
-  const [projectGoals, setProjectGoals] = useState<Goal[]>([]);
+  const [goalStatus, setGoalStatus] = useState<GoalStatusBundle | null>(null);
   const [compactGoals, setCompactGoals] = useState(false);
 
   function refresh() {
@@ -33,10 +46,8 @@ export default function TimeTracker() {
     api.timeEntries.list({ from: twoWeeksAgo.toISOString(), limit: "1000" }).then(setEntries);
     api.projects.list().then(setProjects);
     api.reports.summary(from, to).then(setTodayTotal);
-    api.goals.get().then(({ overall, byProject }) => {
-      setOverallGoal(overall);
-      setProjectGoals(byProject);
-    });
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    api.goals.status(timeZone).then(setGoalStatus);
   }
 
   useEffect(refresh, [version]);
@@ -47,8 +58,6 @@ export default function TimeTracker() {
     );
   }, [projects]);
 
-  const hasGoals = Boolean(overallGoal) || projectGoals.length > 0;
-
   return (
     <div className="main">
       <h1 className="page-title">Time Tracker</h1>
@@ -56,7 +65,7 @@ export default function TimeTracker() {
 
       <Timer />
 
-      {hasGoals ? (
+      {hasAnyGoal(goalStatus) && goalStatus ? (
         <div className="card today-goals-card">
           <div className="today-goals-left">
             <div className="dim" style={{ marginBottom: 6 }}>
@@ -68,19 +77,12 @@ export default function TimeTracker() {
           </div>
           <div className="today-goals-divider" />
           <div className="today-goals-right">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
-              <span className="dim">Goals — today</span>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
               <button className="compact-toggle" onClick={() => setCompactGoals((c) => !c)}>
                 {compactGoals ? "Default" : "Compact"}
               </button>
             </div>
-            <GoalsSummary
-              entries={entries}
-              projects={projects}
-              overall={overallGoal}
-              byProject={projectGoals}
-              compact={compactGoals}
-            />
+            <GoalsSummary status={goalStatus} projects={projects} compact={compactGoals} />
           </div>
         </div>
       ) : (

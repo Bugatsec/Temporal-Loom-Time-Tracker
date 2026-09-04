@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import { formatElapsed } from "../utils/format";
 import type { TimeEntry } from "../api/types";
 
-const APP_TITLE = "Bug Bounty / Life";
+const APP_TITLE = "Temporal Loom";
 
 interface StartInput {
   project_id: string;
