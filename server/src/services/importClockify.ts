@@ -2,6 +2,7 @@ import { createManualEntry, listEntries } from "../models/timeEntry.js";
 import { getOrCreateActivity } from "../models/activity.js";
 import { getOrCreateProject } from "../models/project.js";
 import { getOrCreateTagDetailed } from "../models/tag.js";
+import { zonedWallClockToUtc } from "../utils/timezone.js";
 import { parseCsvRecords } from "./csv.js";
 
 export interface ImportSummary {
@@ -18,12 +19,7 @@ export interface ImportSummary {
 const FALLBACK_PROJECT_NAME = "Uncategorized";
 const FALLBACK_ACTIVITY_NAME = "General";
 
-/** Clockify exports "DD/MM/YYYY" + "HH:MM:SS" with no timezone. Built via
- *  the Date *component* constructor (not string parsing), so the values
- *  are interpreted in this server's local timezone -- correct as long as
- *  the server and the Clockify account are set to the same timezone,
- *  which is the common case for a self-hosted single-user setup. */
-function parseClockifyDateTime(dateStr: string, timeStr: string): Date | null {
+function parseClockifyDateTime(dateStr: string, timeStr: string, timeZone: string): Date | null {
   const dateParts = dateStr.split("/");
   const timeParts = timeStr.split(":");
   if (dateParts.length !== 3 || timeParts.length !== 3) return null;
@@ -32,8 +28,12 @@ function parseClockifyDateTime(dateStr: string, timeStr: string): Date | null {
   const [hour, minute, second] = timeParts.map(Number);
   if ([day, month, year, hour, minute, second].some((n) => Number.isNaN(n))) return null;
 
-  const date = new Date(year, month - 1, day, hour, minute, second);
-  return Number.isNaN(date.getTime()) ? null : date;
+  try {
+    const date = zonedWallClockToUtc(year, month, day, hour, minute, second, timeZone);
+    return Number.isNaN(date.getTime()) ? null : date;
+  } catch {
+    return null; // invalid IANA zone name — caller falls back
+  }
 }
 
 /** Fast in-memory duplicate check for entries already tagged source='imported'
@@ -44,7 +44,7 @@ function buildExistingImportedKeys(): Set<string> {
   return new Set(existing.map((e) => `${e.project_id}|${e.activity_id}|${e.start_at}|${e.end_at}`));
 }
 
-export function importClockifyCsv(csvText: string): ImportSummary {
+export function importClockifyCsv(csvText: string, timeZone: string): ImportSummary {
   const records = parseCsvRecords(csvText);
   const summary: ImportSummary = {
     rows_read: records.length,
@@ -71,8 +71,8 @@ export function importClockifyCsv(csvText: string): ImportSummary {
     const endDate = record["End Date"];
     const endTime = record["End Time"];
 
-    const start = parseClockifyDateTime(startDate, startTime);
-    const end = parseClockifyDateTime(endDate, endTime);
+    const start = parseClockifyDateTime(startDate, startTime, timeZone);
+    const end = parseClockifyDateTime(endDate, endTime, timeZone);
 
     if (!start || !end) {
       summary.rows_skipped_invalid++;
