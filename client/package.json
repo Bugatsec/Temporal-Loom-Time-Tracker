@@ -1,5 +1,5 @@
 {
-  "name": "@bug-bounty-life/client",
+  "name": "@temporal-loom/client",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -11,7 +11,8 @@
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.1"
+    "react-router-dom": "^6.26.1",
+    "recharts": "^2.15.4"
   },
   "devDependencies": {
     "@types/react": "^18.3.4",
