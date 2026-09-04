@@ -61,8 +61,12 @@ CREATE TABLE IF NOT EXISTS tags (
   workspace_id  TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
   name          TEXT NOT NULL,
   color         TEXT,
+  -- Self-referencing parent, same nesting pattern as activities.parent_id —
+  -- lets a tag have sub-tags (e.g. "Reading" under a "Learning" tag).
+  parent_id     TEXT REFERENCES tags(id) ON DELETE SET NULL,
   UNIQUE(workspace_id, name)
 );
+CREATE INDEX IF NOT EXISTS idx_tags_parent ON tags(parent_id);
 
 -- Time entries are the atomic source of truth (doc Section 8).
 CREATE TABLE IF NOT EXISTS time_entries (
@@ -96,6 +100,51 @@ CREATE TABLE IF NOT EXISTS time_entry_tags (
   time_entry_id TEXT NOT NULL REFERENCES time_entries(id) ON DELETE CASCADE,
   tag_id        TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
   PRIMARY KEY (time_entry_id, tag_id)
+);
+
+-- Daily targets (goals). project_id NULL = the overall goal for that
+-- period; otherwise a per-project goal. period distinguishes the four
+-- standing goal types (daily/weekly/monthly/yearly) — each always applies
+-- to whichever instance of that period is currently active, the same way
+-- the original daily-only goal did, rather than being tied to one
+-- specific week/month/year that stops mattering once it ends.
+-- One row per (period, project_id) combo, enforced in application code —
+-- see the model, since SQLite treats NULLs as distinct in UNIQUE
+-- constraints and can't express "at most one NULL per period" directly.
+CREATE TABLE IF NOT EXISTS goals (
+  id                TEXT PRIMARY KEY,
+  workspace_id      TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  period            TEXT NOT NULL DEFAULT 'daily' CHECK (period IN ('daily','weekly','monthly','yearly')),
+  project_id        TEXT REFERENCES projects(id) ON DELETE CASCADE,
+  target_seconds    INTEGER NOT NULL,
+  created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_goals_project ON goals(project_id);
+CREATE INDEX IF NOT EXISTS idx_goals_period ON goals(period);
+
+-- The three standing daily lines: minimum (a floor that must be hit
+-- regardless of any period goal), max (normal ceiling), extreme (hard
+-- ceiling only leaned on when a monthly goal's feasibility math actually
+-- requires it). One row per workspace, upserted like the overall goal.
+CREATE TABLE IF NOT EXISTS daily_caps (
+  id                TEXT PRIMARY KEY,
+  workspace_id      TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  minimum_seconds   INTEGER,
+  max_seconds       INTEGER,
+  extreme_seconds   INTEGER,
+  updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- Stage 3: saved report views — a named, reusable range+filter combo.
+-- config is a small JSON blob ({preset, customFrom, customTo, projectId})
+-- rather than separate columns, since it's UI-shaped config, not queried on.
+CREATE TABLE IF NOT EXISTS saved_views (
+  id            TEXT PRIMARY KEY,
+  workspace_id  TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  name          TEXT NOT NULL,
+  config        TEXT NOT NULL,
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 -- Bootstrap: Stage 1 is single-user/single-workspace, but the row exists
